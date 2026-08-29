@@ -13,6 +13,9 @@ create table if not exists domiciliarios (
 create index if not exists domiciliarios_user_id_idx on domiciliarios (user_id);
 create index if not exists domiciliarios_placa_idx on domiciliarios (placa);
 
+-- Tabla interna: acceso solo mediante service role / server actions
+alter table domiciliarios enable row level security;
+
 -- Extender perfiles para rol domiciliario
 alter table perfiles drop constraint if exists perfiles_rol_check;
 alter table perfiles add constraint perfiles_rol_check

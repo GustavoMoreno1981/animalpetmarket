@@ -10,6 +10,9 @@ create table if not exists clientes (
 
 create unique index if not exists clientes_telefono_idx on clientes (telefono);
 
+-- Tabla interna: acceso solo mediante service role / server actions
+alter table clientes enable row level security;
+
 -- Vincular pedidos a clientes
 alter table pedidos add column if not exists cliente_id uuid references clientes(id) on delete set null;
 

@@ -35,14 +35,18 @@ create index if not exists productos_destacado_idx on productos (destacado) wher
 -- RLS
 alter table productos enable row level security;
 
+drop policy if exists "Productos visibles para todos" on productos;
 create policy "Productos visibles para todos"
   on productos for select using (true);
 
+drop policy if exists "Autenticados pueden insertar productos" on productos;
 create policy "Autenticados pueden insertar productos"
   on productos for insert to authenticated with check (true);
 
+drop policy if exists "Autenticados pueden actualizar productos" on productos;
 create policy "Autenticados pueden actualizar productos"
   on productos for update to authenticated using (true);
 
+drop policy if exists "Autenticados pueden eliminar productos" on productos;
 create policy "Autenticados pueden eliminar productos"
   on productos for delete to authenticated using (true);

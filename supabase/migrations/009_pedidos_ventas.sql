@@ -16,13 +16,17 @@ create table if not exists ventas (
 create index if not exists ventas_fecha_venta_idx on ventas (fecha_venta);
 
 alter table ventas enable row level security;
+drop policy if exists "Ventas visibles para autenticados" on ventas;
 create policy "Ventas visibles para autenticados"
   on ventas for select to authenticated using (true);
+drop policy if exists "Autenticados pueden insertar ventas" on ventas;
 create policy "Autenticados pueden insertar ventas"
   on ventas for insert to authenticated with check (true);
+drop policy if exists "Autenticados pueden actualizar ventas" on ventas;
 create policy "Autenticados pueden actualizar ventas"
   on ventas for update to authenticated using (true);
 
 -- Permitir eliminar pedidos (rechazado)
+drop policy if exists "Autenticados pueden eliminar pedidos" on pedidos;
 create policy "Autenticados pueden eliminar pedidos"
   on pedidos for delete to authenticated using (true);

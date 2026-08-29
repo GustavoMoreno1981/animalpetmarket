@@ -29,17 +29,22 @@ create index if not exists pedido_items_pedido_id_idx on pedido_items (pedido_id
 alter table pedidos enable row level security;
 alter table pedido_items enable row level security;
 
+drop policy if exists "Pedidos visibles para autenticados" on pedidos;
 create policy "Pedidos visibles para autenticados"
   on pedidos for select to authenticated using (true);
 
+drop policy if exists "Cualquiera puede crear pedidos (checkout público)" on pedidos;
 create policy "Cualquiera puede crear pedidos (checkout público)"
   on pedidos for insert with check (true);
 
+drop policy if exists "Autenticados pueden actualizar pedidos" on pedidos;
 create policy "Autenticados pueden actualizar pedidos"
   on pedidos for update to authenticated using (true);
 
+drop policy if exists "Pedido items visibles para autenticados" on pedido_items;
 create policy "Pedido items visibles para autenticados"
   on pedido_items for select to authenticated using (true);
 
+drop policy if exists "Cualquiera puede insertar pedido items" on pedido_items;
 create policy "Cualquiera puede insertar pedido items"
   on pedido_items for insert with check (true);

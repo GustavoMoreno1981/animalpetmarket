@@ -23,6 +23,10 @@ create index if not exists perfiles_user_id_idx on perfiles (user_id);
 create index if not exists perfiles_rol_idx on perfiles (rol);
 create index if not exists vendedores_user_id_idx on vendedores (user_id);
 
+-- Tablas internas: acceso solo mediante service role / server actions
+alter table vendedores enable row level security;
+alter table perfiles enable row level security;
+
 -- Agregar vendedor_id a pedidos y clientes
 alter table pedidos add column if not exists vendedor_id uuid references vendedores(id) on delete set null;
 alter table clientes add column if not exists vendedor_id uuid references vendedores(id) on delete set null;

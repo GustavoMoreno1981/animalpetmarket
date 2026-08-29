@@ -12,20 +12,24 @@ create index if not exists subcategorias_categoria_id_idx on subcategorias (cate
 -- RLS
 alter table subcategorias enable row level security;
 
+drop policy if exists "Subcategorías visibles para todos" on subcategorias;
 create policy "Subcategorías visibles para todos"
   on subcategorias for select
   using (true);
 
+drop policy if exists "Autenticados pueden insertar subcategorías" on subcategorias;
 create policy "Autenticados pueden insertar subcategorías"
   on subcategorias for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Autenticados pueden actualizar subcategorías" on subcategorias;
 create policy "Autenticados pueden actualizar subcategorías"
   on subcategorias for update
   to authenticated
   using (true);
 
+drop policy if exists "Autenticados pueden eliminar subcategorías" on subcategorias;
 create policy "Autenticados pueden eliminar subcategorías"
   on subcategorias for delete
   to authenticated

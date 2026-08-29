@@ -15,3 +15,6 @@ create table if not exists configuracion (
 insert into configuracion (id, nombre_tienda, telefono, whatsapp, email, direccion, facebook_url, instagram_url)
 values (1, 'Pet Market Animal', '311 234 5678', null, 'info@petmarket.com', 'Barrancabermeja, Colombia', 'https://facebook.com', 'https://instagram.com')
 on conflict (id) do nothing;
+
+-- Tabla interna: acceso solo mediante service role / server actions
+alter table configuracion enable row level security;

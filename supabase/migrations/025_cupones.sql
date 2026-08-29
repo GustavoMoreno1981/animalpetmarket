@@ -10,3 +10,6 @@ create table if not exists cupones (
 );
 
 create unique index if not exists cupones_codigo_upper_idx on cupones (upper(trim(codigo)));
+
+-- Tabla interna: acceso solo mediante service role / RPC
+alter table cupones enable row level security;
