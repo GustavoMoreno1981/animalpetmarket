@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { ProductoForm } from "./ProductoForm";
 
 type Subcategoria = { id: string; nombre: string; categoria_id: string };
+type TipoProducto = { id: string; nombre: string; subcategoria_id: string };
 type Categoria = { id: string; nombre: string };
 const ITEMS_POR_PAGINA = 10;
 
@@ -31,6 +32,10 @@ type ProductoRow = Producto & {
       }[]
     | null;
   producto_presentaciones?: ProductoPresentacion[] | null;
+  tipos_producto?:
+    | { id: string; nombre: string; subcategoria_id?: string | null }
+    | { id: string; nombre: string; subcategoria_id?: string | null }[]
+    | null;
 };
 
 function getSubcatName(p: ProductoRow) {
@@ -53,14 +58,25 @@ function getSubcatName(p: ProductoRow) {
   return items.length > 0 ? items.join(", ") : "-";
 }
 
+function getTipoProductoName(p: ProductoRow) {
+  const tipo = p.tipos_producto
+    ? Array.isArray(p.tipos_producto)
+      ? p.tipos_producto[0]
+      : p.tipos_producto
+    : null;
+  return tipo?.nombre ?? "-";
+}
+
 export function ProductosClient({
   productos,
   categorias,
   subcategorias,
+  tiposProducto,
 }: {
   productos: ProductoRow[];
   categorias: Categoria[];
   subcategorias: Subcategoria[];
+  tiposProducto: TipoProducto[];
 }) {
   const formContainerRef = useRef<HTMLDivElement | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -141,10 +157,12 @@ export function ProductosClient({
         const nombre = (p.nombre ?? "").toLowerCase();
         const desc = (p.descripcion ?? "").toLowerCase();
         const subcat = getSubcatName(p).toLowerCase();
+        const tipo = getTipoProductoName(p).toLowerCase();
         return (
           nombre.includes(term) ||
           desc.includes(term) ||
-          subcat.includes(term)
+          subcat.includes(term) ||
+          tipo.includes(term)
         );
       })
     : productos;
@@ -189,6 +207,7 @@ export function ProductosClient({
             key={editingId ?? (creating ? "nuevo-producto" : "producto-form")}
             categorias={categorias}
             subcategorias={subcategorias}
+            tiposProducto={tiposProducto}
             producto={
               prod
                 ? {
@@ -199,6 +218,7 @@ export function ProductosClient({
                     iva_porcentaje: (prod as { iva_porcentaje?: number | null }).iva_porcentaje ?? ((prod as { aplica_iva?: boolean }).aplica_iva === false ? 0 : 19),
                     imagen: prod.imagen,
                     subcategoria_id: prod.subcategoria_id,
+                    tipo_producto_id: prod.tipo_producto_id,
                     subcategoria_ids: (prod as { subcategoria_ids?: string[] }).subcategoria_ids ?? [prod.subcategoria_id],
                     peso: prod.peso ? Number(prod.peso) : null,
                     dimensiones: prod.dimensiones,
@@ -245,7 +265,7 @@ export function ProductosClient({
               setBusqueda(e.target.value);
               setPagina(1);
             }}
-            placeholder="Buscar por nombre, descripción o subcategoría..."
+            placeholder="Buscar por nombre, descripción, subcategoría o tipo..."
             className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-sm outline-none transition focus:border-[var(--ca-purple)] focus:ring-2 focus:ring-[var(--ca-purple)]/20"
           />
         </div>
@@ -259,6 +279,7 @@ export function ProductosClient({
               <th className="px-4 py-3 font-bold text-slate-600">Precio</th>
               <th className="px-4 py-3 font-bold text-slate-600">Stock</th>
               <th className="px-4 py-3 font-bold text-slate-600">Subcategoría</th>
+              <th className="px-4 py-3 font-bold text-slate-600">Tipo</th>
               <th className="w-24 px-4 py-3 text-right font-bold text-slate-600">
                 Acciones
               </th>
@@ -267,7 +288,7 @@ export function ProductosClient({
           <tbody>
             {productosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                   {term
                     ? "No se encontraron productos con esa búsqueda."
                     : "No hay productos. Crea el primero."}
@@ -302,6 +323,9 @@ export function ProductosClient({
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {getSubcatName(p)}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {getTipoProductoName(p)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button

@@ -151,6 +151,15 @@ export async function eliminarCategoria(id: string) {
   if (!isValidUUID(id)) return { error: "ID inválido" };
 
   const supabase = await createClient();
+  const { count: subcategoriasCount, error: subcategoriasError } = await supabase
+    .from("subcategorias")
+    .select("*", { count: "exact", head: true })
+    .eq("categoria_id", id);
+  if (subcategoriasError) return { error: subcategoriasError.message };
+  if ((subcategoriasCount ?? 0) > 0) {
+    return { error: "No puedes eliminar una categoría que todavía tiene subcategorías asociadas" };
+  }
+
   const { error } = await supabase.from("categorias").delete().eq("id", id);
 
   if (error) return { error: error.message };

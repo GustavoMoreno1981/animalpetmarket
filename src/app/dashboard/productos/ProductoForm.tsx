@@ -2,7 +2,7 @@
 
 import { IVA_OPCIONES, IVA_POR_DEFECTO } from "@/lib/iva";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type Presentacion = {
   id?: string;
@@ -26,6 +26,7 @@ type SeccionId = (typeof SECCIONES)[number]["id"];
 type ProductoFormProps = {
   categorias: { id: string; nombre: string }[];
   subcategorias: { id: string; nombre: string; categoria_id: string }[];
+  tiposProducto: { id: string; nombre: string; subcategoria_id: string }[];
   producto?: {
     nombre: string;
     descripcion: string | null;
@@ -34,6 +35,7 @@ type ProductoFormProps = {
     iva_porcentaje?: number | null;
     imagen: string | null;
     subcategoria_id: string;
+    tipo_producto_id: string;
     subcategoria_ids?: string[];
     peso: number | null;
     dimensiones: string | null;
@@ -59,6 +61,7 @@ type ProductoFormProps = {
 export function ProductoForm({
   categorias,
   subcategorias,
+  tiposProducto,
   producto,
   presentaciones = [],
   onSubmit,
@@ -66,9 +69,13 @@ export function ProductoForm({
   loading,
   submitLabel,
 }: ProductoFormProps) {
+  const [categoriaPrincipalId, setCategoriaPrincipalId] = useState(
+    subcategorias.find((sub) => sub.id === (producto?.subcategoria_id ?? ""))?.categoria_id ?? ""
+  );
   const [subcategoriaPrincipalId, setSubcategoriaPrincipalId] = useState(
     producto?.subcategoria_id ?? ""
   );
+  const [tipoProductoId, setTipoProductoId] = useState(producto?.tipo_producto_id ?? "");
   const [subcategoriasSeleccionadas, setSubcategoriasSeleccionadas] = useState<string[]>(
     producto?.subcategoria_ids ?? (producto?.subcategoria_id ? [producto.subcategoria_id] : [])
   );
@@ -113,6 +120,29 @@ export function ProductoForm({
     setSubcategoriasSeleccionadas((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
+  };
+
+  const subcategoriasCategoriaActual = useMemo(
+    () =>
+      categoriaPrincipalId
+        ? subcategorias.filter((subcategoria) => subcategoria.categoria_id === categoriaPrincipalId)
+        : [],
+    [categoriaPrincipalId, subcategorias]
+  );
+
+  const tiposProductoSubcategoriaActual = useMemo(
+    () =>
+      subcategoriaPrincipalId
+        ? tiposProducto.filter((tipo) => tipo.subcategoria_id === subcategoriaPrincipalId)
+        : [],
+    [subcategoriaPrincipalId, tiposProducto]
+  );
+
+  const resolverTipoPredeterminado = (subcategoriaId: string) => {
+    const tiposDisponibles = tiposProducto.filter((tipo) => tipo.subcategoria_id === subcategoriaId);
+    if (tiposDisponibles.length === 0) return "";
+    const general = tiposDisponibles.find((tipo) => tipo.nombre.toLowerCase() === "general");
+    return general?.id ?? tiposDisponibles[0].id;
   };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -268,6 +298,34 @@ export function ProductoForm({
           </div>
         </div>
         <div>
+          <label className="mb-1 block text-sm font-semibold">Categoría *</label>
+          <select
+            value={categoriaPrincipalId}
+            onChange={(e) => {
+              const value = e.target.value;
+              setCategoriaPrincipalId(value);
+              const subcategoriaSigueValida = subcategorias.some(
+                (subcategoria) =>
+                  subcategoria.id === subcategoriaPrincipalId &&
+                  subcategoria.categoria_id === value
+              );
+              if (!subcategoriaSigueValida) {
+                setSubcategoriaPrincipalId("");
+                setTipoProductoId("");
+                setSubcategoriasSeleccionadas([]);
+              }
+            }}
+            className="h-10 w-full rounded-lg border border-slate-200 px-3"
+          >
+            <option value="">Selecciona categoría</option>
+            {categorias.map((categoria) => (
+              <option key={categoria.id} value={categoria.id}>
+                {categoria.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="mb-1 block text-sm font-semibold">Subcategoría *</label>
           <select
             name="subcategoria_id"
@@ -277,26 +335,58 @@ export function ProductoForm({
               const value = e.target.value;
               setSubcategoriaPrincipalId(value);
               if (value) {
+                const subcategoria = subcategorias.find((item) => item.id === value);
+                if (subcategoria) setCategoriaPrincipalId(subcategoria.categoria_id);
                 setSubcategoriasSeleccionadas((prev) =>
                   prev.includes(value) ? prev : [...prev, value]
                 );
+                setTipoProductoId((prev) => {
+                  const tiposDisponibles = tiposProducto.filter((tipo) => tipo.subcategoria_id === value);
+                  if (tiposDisponibles.some((tipo) => tipo.id === prev)) return prev;
+                  return resolverTipoPredeterminado(value);
+                });
+              } else {
+                setTipoProductoId("");
               }
             }}
             className="h-10 w-full rounded-lg border border-slate-200 px-3"
           >
             <option value="">Selecciona subcategoría</option>
-            {categorias.map((cat) => (
-              <optgroup key={cat.id} label={cat.nombre}>
-                {subcategorias
-                  .filter((s) => s.categoria_id === cat.id)
-                  .map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.nombre}
-                    </option>
-                  ))}
-              </optgroup>
+            {subcategoriasCategoriaActual.map((subcategoria) => (
+              <option key={subcategoria.id} value={subcategoria.id}>
+                {subcategoria.nombre}
+              </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-semibold">Tipo de producto *</label>
+          <select
+            name="tipo_producto_id"
+            required
+            value={tipoProductoId}
+            onChange={(e) => setTipoProductoId(e.target.value)}
+            disabled={!subcategoriaPrincipalId || tiposProductoSubcategoriaActual.length === 0}
+            className="h-10 w-full rounded-lg border border-slate-200 px-3 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            <option value="">
+              {subcategoriaPrincipalId
+                ? tiposProductoSubcategoriaActual.length > 0
+                  ? "Selecciona tipo de producto"
+                  : "Primero crea un tipo de producto"
+                : "Selecciona subcategoría"}
+            </option>
+            {tiposProductoSubcategoriaActual.map((tipo) => (
+              <option key={tipo.id} value={tipo.id}>
+                {tipo.nombre}
+              </option>
+            ))}
+          </select>
+          {subcategoriaPrincipalId && tiposProductoSubcategoriaActual.length === 0 && (
+            <p className="mt-1 text-xs text-amber-600">
+              Esta subcategoría aún no tiene tipos de producto. Créelos en `/dashboard/tipos-producto`.
+            </p>
+          )}
         </div>
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <p className="mb-2 text-sm font-semibold text-slate-700">

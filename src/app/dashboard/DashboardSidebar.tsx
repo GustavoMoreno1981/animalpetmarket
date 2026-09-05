@@ -8,6 +8,7 @@ const navItemsAdmin = [
   { href: "/dashboard", label: "Inicio", iconName: "LayoutDashboard" as const },
   { href: "/dashboard/categorias", label: "Categorías", iconName: "PawPrint" as const },
   { href: "/dashboard/subcategorias", label: "Subcategorías", iconName: "Layers" as const },
+  { href: "/dashboard/tipos-producto", label: "Tipos de producto", iconName: "Tags" as const },
   { href: "/dashboard/productos", label: "Productos", iconName: "Package" as const },
   { href: "/dashboard/inventario", label: "Inventario", iconName: "Boxes" as const },
   { href: "/dashboard/pedidos", label: "Pedidos", iconName: "ShoppingBag" as const },
@@ -32,7 +33,6 @@ const navItemsDomiciliario = [
 
 export function DashboardSidebar({
   rol = "admin",
-  vendedorId,
 }: {
   rol?: "admin" | "vendedor" | "domiciliario";
   vendedorId?: string | null;

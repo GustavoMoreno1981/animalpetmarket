@@ -24,6 +24,7 @@ export type Producto = {
   precio: number | string;
   imagen: string | null;
   subcategoria_id: string;
+  tipo_producto_id: string;
   subcategoria_ids?: string[];
   peso: number | null;
   dimensiones: string | null;
@@ -87,6 +88,7 @@ type ProductoUpdateSnapshot = {
     iva_porcentaje: number | null;
     imagen: string | null;
     subcategoria_id: string;
+    tipo_producto_id: string;
     porcentaje_oferta: number | null;
     peso: number | null;
     dimensiones: string | null;
@@ -194,6 +196,26 @@ function parseSubcategoriaIds(
   return { ids };
 }
 
+async function validarTipoProductoEnSubcategoria(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tipoProductoId: string,
+  subcategoriaId: string
+) {
+  const { data: tipoProducto, error } = await supabase
+    .from("tipos_producto")
+    .select("id, subcategoria_id")
+    .eq("id", tipoProductoId)
+    .maybeSingle();
+
+  if (error) return { error: `Error al validar el tipo de producto: ${error.message}` };
+  if (!tipoProducto) return { error: "El tipo de producto seleccionado no existe" };
+  if (tipoProducto.subcategoria_id !== subcategoriaId) {
+    return { error: "El tipo de producto no pertenece a la subcategor?a seleccionada" };
+  }
+
+  return { success: true as const };
+}
+
 function parseIvaPorcentaje(
   valor: FormDataEntryValue | null,
   campo: string
@@ -223,6 +245,7 @@ async function restaurarProductoDesdeSnapshot(
         iva_porcentaje: snapshot.producto.iva_porcentaje,
         imagen: snapshot.producto.imagen,
         subcategoria_id: snapshot.producto.subcategoria_id,
+        tipo_producto_id: snapshot.producto.tipo_producto_id,
         porcentaje_oferta: snapshot.producto.porcentaje_oferta,
         peso: snapshot.producto.peso,
         dimensiones: snapshot.producto.dimensiones,
@@ -402,14 +425,17 @@ export async function crearProducto(formData: FormData) {
   const nombre = formData.get("nombre") as string;
   const precio = parseFloat((formData.get("precio") as string) || "0");
   const subcategoria_id = formData.get("subcategoria_id") as string;
+  const tipo_producto_id = formData.get("tipo_producto_id") as string;
 
   if (!nombre?.trim()) return { error: "El nombre es obligatorio" };
   if (!subcategoria_id) return { error: "Selecciona una subcategor?a" };
+  if (!tipo_producto_id) return { error: "Selecciona un tipo de producto" };
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
   const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio");
   if (errPrecio) return { error: errPrecio };
   if (!isValidUUID(subcategoria_id)) return { error: "Subcategor?a inv?lida" };
+  if (!isValidUUID(tipo_producto_id)) return { error: "Tipo de producto inv?lido" };
   const subcategoriasResult = parseSubcategoriaIds(formData, subcategoria_id);
   if ("error" in subcategoriasResult) return subcategoriasResult;
 
@@ -431,6 +457,15 @@ export async function crearProducto(formData: FormData) {
   uploadedImagePaths.push(...presentacionesResult.uploadedImagePaths);
 
   const supabase = await createClient();
+  const validacionTipo = await validarTipoProductoEnSubcategoria(
+    supabase,
+    tipo_producto_id,
+    subcategoria_id
+  );
+  if ("error" in validacionTipo) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
+    return validacionTipo;
+  }
   const file = formData.get("imagen") as File | null;
   let imagen: string | null = null;
   if (file?.size) {
@@ -456,6 +491,7 @@ export async function crearProducto(formData: FormData) {
     iva_porcentaje: ivaProductoResult.ivaPorcentaje,
     imagen,
     subcategoria_id,
+    tipo_producto_id,
     porcentaje_oferta: porcentajeOferta != null && porcentajeOferta >= 1 && porcentajeOferta <= 99 ? porcentajeOferta : null,
     peso: formData.get("peso") ? parseFloat(formData.get("peso") as string) : null,
     dimensiones: dim ? sanitizarTexto(dim, 100) : null,
@@ -554,14 +590,17 @@ export async function actualizarProducto(id: string, formData: FormData) {
   const nombre = formData.get("nombre") as string;
   const precio = parseFloat((formData.get("precio") as string) || "0");
   const subcategoria_id = formData.get("subcategoria_id") as string;
+  const tipo_producto_id = formData.get("tipo_producto_id") as string;
 
   if (!nombre?.trim()) return { error: "El nombre es obligatorio" };
   if (!subcategoria_id) return { error: "Selecciona una subcategor?a" };
+  if (!tipo_producto_id) return { error: "Selecciona un tipo de producto" };
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
   const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio");
   if (errPrecio) return { error: errPrecio };
   if (!isValidUUID(subcategoria_id)) return { error: "Subcategor?a inv?lida" };
+  if (!isValidUUID(tipo_producto_id)) return { error: "Tipo de producto inv?lido" };
   const subcategoriasResult = parseSubcategoriaIds(formData, subcategoria_id);
   if ("error" in subcategoriasResult) return subcategoriasResult;
 
@@ -579,10 +618,19 @@ export async function actualizarProducto(id: string, formData: FormData) {
   uploadedImagePaths.push(...presentacionesResult.uploadedImagePaths);
 
   const supabase = await createClient();
+  const validacionTipo = await validarTipoProductoEnSubcategoria(
+    supabase,
+    tipo_producto_id,
+    subcategoria_id
+  );
+  if ("error" in validacionTipo) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
+    return validacionTipo;
+  }
   const { data: productoActual, error: errProductoActual } = await supabase
     .from("productos")
     .select(
-      "nombre, descripcion, precio, aplica_iva, iva_porcentaje, imagen, subcategoria_id, porcentaje_oferta, peso, dimensiones, requiere_refrigeracion, producto_fragil, destacado, nuevo, mas_vendido, recomendado, secciones_activas, datos_medicamento, datos_alimento, datos_juguete"
+      "nombre, descripcion, precio, aplica_iva, iva_porcentaje, imagen, subcategoria_id, tipo_producto_id, porcentaje_oferta, peso, dimensiones, requiere_refrigeracion, producto_fragil, destacado, nuevo, mas_vendido, recomendado, secciones_activas, datos_medicamento, datos_alimento, datos_juguete"
     )
     .eq("id", id)
     .maybeSingle();
@@ -669,6 +717,7 @@ export async function actualizarProducto(id: string, formData: FormData) {
       iva_porcentaje: productoActual.iva_porcentaje,
       imagen: productoActual.imagen,
       subcategoria_id: productoActual.subcategoria_id,
+      tipo_producto_id: productoActual.tipo_producto_id,
       porcentaje_oferta: productoActual.porcentaje_oferta,
       peso: productoActual.peso,
       dimensiones: productoActual.dimensiones,
@@ -727,6 +776,7 @@ export async function actualizarProducto(id: string, formData: FormData) {
     iva_porcentaje: ivaProductoResult.ivaPorcentaje,
     porcentaje_oferta: porcentajeOferta != null && porcentajeOferta >= 1 && porcentajeOferta <= 99 ? porcentajeOferta : null,
     subcategoria_id,
+    tipo_producto_id,
     peso: formData.get("peso") ? parseFloat(formData.get("peso") as string) : null,
     dimensiones: dimUpdate ? sanitizarTexto(dimUpdate, 100) : null,
     requiere_refrigeracion: formData.get("requiere_refrigeracion") === "1",

@@ -2,6 +2,7 @@ import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import TopBar from "@/components/TopBar";
 import { ProductoDetalle } from "@/components/ProductoDetalle";
+import { tiendaSubcategoriaHref, tiendaTipoProductoHref } from "@/lib/catalogo";
 import { resolverIvaPorcentaje } from "@/lib/iva";
 import { createClient } from "@/lib/supabase/server";
 import { isValidUUID } from "@/lib/validations";
@@ -46,7 +47,8 @@ export default async function ProductoPage({
       datos_medicamento,
       datos_alimento,
       datos_juguete,
-      subcategorias (nombre, categorias (nombre))
+      subcategorias (nombre, categorias (nombre)),
+      tipos_producto (nombre)
     `)
     .eq("id", id)
     .single();
@@ -62,19 +64,17 @@ export default async function ProductoPage({
   const sub = Array.isArray(producto.subcategorias)
     ? producto.subcategorias[0]
     : producto.subcategorias;
+  const tipoProducto = Array.isArray(producto.tipos_producto)
+    ? producto.tipos_producto[0]
+    : producto.tipos_producto;
   const catRaw = sub?.categorias;
   const cat = (Array.isArray(catRaw) ? catRaw[0] : catRaw) as { nombre: string } | undefined;
-  const catSlug = cat
-    ? cat.nombre.toLowerCase().replace(/\s+/g, "-").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    : "";
-  const subSlug = sub
-    ? (sub as { nombre: string }).nombre
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-    : "";
-  const volverHref = catSlug && subSlug ? `/tienda/${catSlug}/${subSlug}` : "/";
+  const volverHref =
+    cat?.nombre && sub?.nombre && tipoProducto?.nombre
+      ? tiendaTipoProductoHref(cat.nombre, sub.nombre, tipoProducto.nombre)
+      : cat?.nombre && sub?.nombre
+        ? tiendaSubcategoriaHref(cat.nombre, sub.nombre)
+        : "/";
 
   const precioNum =
     typeof producto.precio === "string"

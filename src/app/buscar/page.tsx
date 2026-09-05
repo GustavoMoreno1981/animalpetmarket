@@ -35,13 +35,61 @@ export default async function BuscarPage({
 
   const supabase = await createClient();
   const term = `%${query}%`;
-  const { data: productos } = await supabase
+  const { data: tiposCoincidentes } = await supabase
+    .from("tipos_producto")
+    .select(`
+      id,
+      nombre,
+      subcategorias (
+        nombre,
+        categorias (nombre)
+      )
+    `)
+    .ilike("nombre", term)
+    .order("nombre");
+
+  const { data: productosPorTexto } = await supabase
     .from("productos")
-    .select("id, nombre, precio, imagen, aplica_iva, iva_porcentaje, porcentaje_oferta, producto_presentaciones (precio, porcentaje_oferta, orden, aplica_iva, iva_porcentaje)")
+    .select(`
+      id,
+      nombre,
+      precio,
+      imagen,
+      aplica_iva,
+      iva_porcentaje,
+      porcentaje_oferta,
+      producto_presentaciones (precio, porcentaje_oferta, orden, aplica_iva, iva_porcentaje),
+      subcategorias (nombre, categorias (nombre)),
+      tipos_producto (nombre)
+    `)
     .or(`nombre.ilike.${term},descripcion.ilike.${term}`)
     .order("nombre");
 
-  const items = productos ?? [];
+  const tipoIds = (tiposCoincidentes ?? []).map((tipo) => tipo.id);
+  let productosPorTipo: typeof productosPorTexto = [];
+  if (tipoIds.length > 0) {
+    const { data } = await supabase
+      .from("productos")
+      .select(`
+        id,
+        nombre,
+        precio,
+        imagen,
+        aplica_iva,
+        iva_porcentaje,
+        porcentaje_oferta,
+        producto_presentaciones (precio, porcentaje_oferta, orden, aplica_iva, iva_porcentaje),
+        subcategorias (nombre, categorias (nombre)),
+        tipos_producto (nombre)
+      `)
+      .in("tipo_producto_id", tipoIds)
+      .order("nombre");
+    productosPorTipo = data ?? [];
+  }
+
+  const items = [...(productosPorTexto ?? []), ...(productosPorTipo ?? [])].filter(
+    (producto, index, arr) => arr.findIndex((item) => item.id === producto.id) === index
+  );
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,#ffeef7,transparent_42%),#fff7ef] text-slate-800">
@@ -69,6 +117,23 @@ export default async function BuscarPage({
                   const pps = Array.isArray(p.producto_presentaciones) ? p.producto_presentaciones : p.producto_presentaciones ? [p.producto_presentaciones] : [];
                   const ordenados = [...pps].sort((a, b) => (a?.orden ?? 0) - (b?.orden ?? 0));
                   const pres = ordenados[0];
+                  const subcategoria = (
+                    Array.isArray(p.subcategorias) ? p.subcategorias[0] : p.subcategorias
+                  ) as
+                    | { nombre: string; categorias?: { nombre: string } | { nombre: string }[] | null }
+                    | null
+                    | undefined;
+                  const categoria = subcategoria?.categorias as
+                    | { nombre: string }
+                    | { nombre: string }[]
+                    | null
+                    | undefined;
+                  const categoriaNombre = Array.isArray(categoria)
+                    ? categoria[0]?.nombre
+                    : categoria?.nombre;
+                  const tipoProducto = (
+                    Array.isArray(p.tipos_producto) ? p.tipos_producto[0] : p.tipos_producto
+                  ) as { nombre: string } | null | undefined;
                   const precio = pres?.precio != null ? Number(pres.precio) : Number(p.precio);
                   const oferta = pres?.porcentaje_oferta ?? p.porcentaje_oferta;
                   const precioBase = oferta && oferta > 0 ? precio * (1 - oferta / 100) : precio;
@@ -101,6 +166,9 @@ export default async function BuscarPage({
                       </div>
                       <div className="p-3">
                         <p className="line-clamp-2 text-sm font-semibold text-slate-800">{p.nombre}</p>
+                        <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                          {[categoriaNombre, subcategoria?.nombre, tipoProducto?.nombre].filter(Boolean).join(" → ")}
+                        </p>
                         <p className="mt-1 text-lg font-black text-[var(--ca-orange)]">
                           ${precioFinal.toLocaleString("es-CO")}
                           {oferta && oferta > 0 && (

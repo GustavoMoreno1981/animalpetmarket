@@ -12,6 +12,7 @@ import {
   Settings,
   ShoppingBag,
   Tag,
+  Tags,
   UserCircle,
   Users,
 } from "lucide-react";
@@ -30,6 +31,7 @@ const iconMap = {
   Settings,
   ShoppingBag,
   Tag,
+  Tags,
   UserCircle,
   Users,
 } as const;

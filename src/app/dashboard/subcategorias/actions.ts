@@ -79,6 +79,15 @@ export async function eliminarSubcategoria(id: string) {
   if (!isValidUUID(id)) return { error: "ID inválido" };
 
   const supabase = await createClient();
+  const { count: productosCount, error: productosError } = await supabase
+    .from("productos")
+    .select("*", { count: "exact", head: true })
+    .eq("subcategoria_id", id);
+  if (productosError) return { error: productosError.message };
+  if ((productosCount ?? 0) > 0) {
+    return { error: "No puedes eliminar una subcategoría que todavía tiene productos asociados" };
+  }
+
   const { error } = await supabase.from("subcategorias").delete().eq("id", id);
 
   if (error) return { error: error.message };

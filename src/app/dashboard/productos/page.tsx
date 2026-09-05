@@ -15,6 +15,7 @@ export default async function ProductosPage() {
       iva_porcentaje,
       imagen,
       subcategoria_id,
+      tipo_producto_id,
       peso,
       dimensiones,
       requiere_refrigeracion,
@@ -30,6 +31,7 @@ export default async function ProductosPage() {
       datos_juguete,
       created_at,
       subcategorias (nombre, categorias (nombre)),
+      tipos_producto (id, nombre, subcategoria_id),
       producto_subcategorias (subcategoria_id, subcategorias (nombre, categorias (nombre))),
       producto_presentaciones (id, nombre, imagen, precio, orden, aplica_iva, iva_porcentaje, porcentaje_oferta)
     `)
@@ -43,6 +45,11 @@ export default async function ProductosPage() {
   const { data: subcategorias } = await supabase
     .from("subcategorias")
     .select("id, nombre, categoria_id")
+    .order("nombre");
+
+  const { data: tiposProducto } = await supabase
+    .from("tipos_producto")
+    .select("id, nombre, subcategoria_id")
     .order("nombre");
 
   const ppIds =
@@ -101,6 +108,7 @@ export default async function ProductosPage() {
       productos={productosConStock}
       categorias={categorias ?? []}
       subcategorias={subcategorias ?? []}
+      tiposProducto={tiposProducto ?? []}
     />
   );
 }
