@@ -367,7 +367,10 @@ async function extraerPresentacionesDesdeFormData(
 
     const precioVal = formData.get(`presentacion_${i}_precio`) as string;
     const precioPres = precioVal ? parseFloat(precioVal) : null;
-    if (precioPres != null && (precioPres < 0 || precioPres > MAX_PRECIO)) {
+    if (precioPres == null || Number.isNaN(precioPres)) {
+      return { error: `Presentaci?n "${nombrePres}": el precio es obligatorio`, uploadedImagePaths };
+    }
+    if (precioPres < 0 || precioPres > MAX_PRECIO) {
       return { error: `Presentaci?n "${nombrePres}": precio inv?lido`, uploadedImagePaths };
     }
 
@@ -423,7 +426,6 @@ export async function crearProducto(formData: FormData) {
   if (auth.error) return auth;
 
   const nombre = formData.get("nombre") as string;
-  const precio = parseFloat((formData.get("precio") as string) || "0");
   const subcategoria_id = formData.get("subcategoria_id") as string;
   const tipo_producto_id = formData.get("tipo_producto_id") as string;
 
@@ -432,8 +434,6 @@ export async function crearProducto(formData: FormData) {
   if (!tipo_producto_id) return { error: "Selecciona un tipo de producto" };
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
-  const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio");
-  if (errPrecio) return { error: errPrecio };
   if (!isValidUUID(subcategoria_id)) return { error: "Subcategor?a inv?lida" };
   if (!isValidUUID(tipo_producto_id)) return { error: "Tipo de producto inv?lido" };
   const subcategoriasResult = parseSubcategoriaIds(formData, subcategoria_id);
@@ -454,7 +454,17 @@ export async function crearProducto(formData: FormData) {
     await eliminarImagenesSubidas(presentacionesResult.uploadedImagePaths);
     return { error: presentacionesResult.error };
   }
+  if (presentacionesResult.presentaciones.length === 0) {
+    await eliminarImagenesSubidas(presentacionesResult.uploadedImagePaths);
+    return { error: "Debes agregar al menos una presentaci?n con gramaje y precio" };
+  }
   uploadedImagePaths.push(...presentacionesResult.uploadedImagePaths);
+  const precio = Number(presentacionesResult.presentaciones[0]?.precio ?? 0);
+  const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio de la primera presentaci?n");
+  if (errPrecio) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
+    return { error: errPrecio };
+  }
 
   const supabase = await createClient();
   const validacionTipo = await validarTipoProductoEnSubcategoria(
@@ -536,43 +546,23 @@ export async function crearProducto(formData: FormData) {
     };
   }
 
-  // Crear presentaciones; si no hay ninguna, crear "Principal" para inventario.
-  if (presentacionesResult.presentaciones.length > 0) {
-    const { error: errPres } = await supabase.from("producto_presentaciones").insert(
-      presentacionesResult.presentaciones.map((presentacion) => ({
-        producto_id: productoId,
-        nombre: presentacion.nombre,
-        imagen: presentacion.imagen,
-        precio: presentacion.precio,
-        aplica_iva: presentacion.aplica_iva,
-        iva_porcentaje: presentacion.iva_porcentaje,
-        porcentaje_oferta: presentacion.porcentaje_oferta,
-        orden: presentacion.orden,
-      }))
-    );
-    if (errPres) {
-      const revertError = await revertirCreacionProducto(productoId, uploadedImagePaths);
-      return {
-        error: `Error al crear presentaciones: ${errPres.message}${revertError ? `. ${revertError}` : ""}`,
-      };
-    }
-  } else {
-    const { error: errPrincipal } = await supabase.from("producto_presentaciones").insert({
+  const { error: errPres } = await supabase.from("producto_presentaciones").insert(
+    presentacionesResult.presentaciones.map((presentacion) => ({
       producto_id: productoId,
-      nombre: "Principal",
-      imagen: null,
-      precio,
-      aplica_iva: aplicaIva,
-      iva_porcentaje: ivaProductoResult.ivaPorcentaje,
-      porcentaje_oferta: porcentajeOferta != null && porcentajeOferta >= 1 && porcentajeOferta <= 99 ? porcentajeOferta : null,
-      orden: 0,
-    });
-    if (errPrincipal) {
-      const revertError = await revertirCreacionProducto(productoId, uploadedImagePaths);
-      return {
-        error: `Error al crear presentaci?n Principal: ${errPrincipal.message}${revertError ? `. ${revertError}` : ""}`,
-      };
-    }
+      nombre: presentacion.nombre,
+      imagen: presentacion.imagen,
+      precio: presentacion.precio,
+      aplica_iva: presentacion.aplica_iva,
+      iva_porcentaje: presentacion.iva_porcentaje,
+      porcentaje_oferta: presentacion.porcentaje_oferta,
+      orden: presentacion.orden,
+    }))
+  );
+  if (errPres) {
+    const revertError = await revertirCreacionProducto(productoId, uploadedImagePaths);
+    return {
+      error: `Error al crear presentaciones: ${errPres.message}${revertError ? `. ${revertError}` : ""}`,
+    };
   }
 
   revalidatePath("/dashboard/productos");
@@ -588,7 +578,6 @@ export async function actualizarProducto(id: string, formData: FormData) {
   if (!isValidUUID(id)) return { error: "ID inv?lido" };
 
   const nombre = formData.get("nombre") as string;
-  const precio = parseFloat((formData.get("precio") as string) || "0");
   const subcategoria_id = formData.get("subcategoria_id") as string;
   const tipo_producto_id = formData.get("tipo_producto_id") as string;
 
@@ -597,8 +586,6 @@ export async function actualizarProducto(id: string, formData: FormData) {
   if (!tipo_producto_id) return { error: "Selecciona un tipo de producto" };
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
-  const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio");
-  if (errPrecio) return { error: errPrecio };
   if (!isValidUUID(subcategoria_id)) return { error: "Subcategor?a inv?lida" };
   if (!isValidUUID(tipo_producto_id)) return { error: "Tipo de producto inv?lido" };
   const subcategoriasResult = parseSubcategoriaIds(formData, subcategoria_id);
@@ -615,7 +602,17 @@ export async function actualizarProducto(id: string, formData: FormData) {
     await eliminarImagenesSubidas(presentacionesResult.uploadedImagePaths);
     return { error: presentacionesResult.error };
   }
+  if (presentacionesResult.presentaciones.length === 0) {
+    await eliminarImagenesSubidas(presentacionesResult.uploadedImagePaths);
+    return { error: "Debes conservar al menos una presentaci?n con gramaje y precio" };
+  }
   uploadedImagePaths.push(...presentacionesResult.uploadedImagePaths);
+  const precio = Number(presentacionesResult.presentaciones[0]?.precio ?? 0);
+  const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio de la primera presentaci?n");
+  if (errPrecio) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
+    return { error: errPrecio };
+  }
 
   const supabase = await createClient();
   const validacionTipo = await validarTipoProductoEnSubcategoria(
@@ -666,24 +663,12 @@ export async function actualizarProducto(id: string, formData: FormData) {
     presentacionesActuales.map((presentacion) => [presentacion.id, presentacion])
   );
   const idsExistentes = new Set(presentacionesActuales.map((presentacion) => presentacion.id));
-  const principalExistente = presentacionesActuales
-    .filter((presentacion) => presentacion.nombre === "Principal")
-    .sort((a, b) => {
-      const left = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const right = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return left - right;
-    })[0];
-
   const idsConservadosPrevistos = new Set<string>();
-  if (presentacionesResult.presentaciones.length === 0) {
-    if (principalExistente?.id) idsConservadosPrevistos.add(principalExistente.id);
-  } else {
-    presentacionesResult.presentaciones.forEach((presentacion) => {
-      if (presentacion.id && idsExistentes.has(presentacion.id)) {
-        idsConservadosPrevistos.add(presentacion.id);
-      }
-    });
-  }
+  presentacionesResult.presentaciones.forEach((presentacion) => {
+    if (presentacion.id && idsExistentes.has(presentacion.id)) {
+      idsConservadosPrevistos.add(presentacion.id);
+    }
+  });
 
   const idsAEliminar = [...idsExistentes].filter((presentacionId) => !idsConservadosPrevistos.has(presentacionId));
   if (idsAEliminar.length > 0) {
@@ -832,99 +817,50 @@ export async function actualizarProducto(id: string, formData: FormData) {
     imagePathsToDelete.push(oldProductImagePath);
   }
 
-  if (presentacionesResult.presentaciones.length === 0) {
-    if (principalExistente?.id) {
-      const { error: errPrincipalUpdate } = await supabase
+  for (const presentacion of presentacionesResult.presentaciones) {
+    if (presentacion.id && idsExistentes.has(presentacion.id)) {
+      const imagenAnterior = presentacionesExistentesMap.get(presentacion.id)?.imagen ?? null;
+      const { error: errPresUpdate } = await supabase
         .from("producto_presentaciones")
         .update({
-          nombre: "Principal",
-          imagen: null,
-          precio,
-          aplica_iva: aplicaIva,
-          iva_porcentaje: ivaProductoResult.ivaPorcentaje,
-          porcentaje_oferta:
-            porcentajeOferta != null && porcentajeOferta >= 1 && porcentajeOferta <= 99
-              ? porcentajeOferta
-              : null,
-          orden: 0,
+          nombre: presentacion.nombre,
+          imagen: presentacion.imagen,
+          precio: presentacion.precio,
+          aplica_iva: presentacion.aplica_iva,
+          iva_porcentaje: presentacion.iva_porcentaje,
+          porcentaje_oferta: presentacion.porcentaje_oferta,
+          orden: presentacion.orden,
         })
-        .eq("id", principalExistente.id)
+        .eq("id", presentacion.id)
         .eq("producto_id", id);
-      if (errPrincipalUpdate) {
-        return rollbackAfterPartialUpdate(`Error al actualizar presentaci?n Principal: ${errPrincipalUpdate.message}`);
+      if (errPresUpdate) {
+        return rollbackAfterPartialUpdate(`Error al actualizar presentaci?n "${presentacion.nombre}": ${errPresUpdate.message}`);
       }
-      const oldImagePath = extraerPathDesdeUrlPublica(principalExistente.imagen);
-      if (oldImagePath) imagePathsToDelete.push(oldImagePath);
-      idsConservados.add(principalExistente.id);
+      const oldImagePath = extraerPathDesdeUrlPublica(imagenAnterior);
+      const newImagePath = extraerPathDesdeUrlPublica(presentacion.imagen);
+      if (oldImagePath && oldImagePath !== newImagePath) {
+        imagePathsToDelete.push(oldImagePath);
+      }
+      idsConservados.add(presentacion.id);
     } else {
-      const { data: principalInsertada, error: errPrincipal } = await supabase
+      const { data: presentacionInsertada, error: errPresInsert } = await supabase
         .from("producto_presentaciones")
         .insert({
           producto_id: id,
-          nombre: "Principal",
-          imagen: null,
-          precio,
-          aplica_iva: aplicaIva,
-          iva_porcentaje: ivaProductoResult.ivaPorcentaje,
-          porcentaje_oferta:
-            porcentajeOferta != null && porcentajeOferta >= 1 && porcentajeOferta <= 99
-              ? porcentajeOferta
-              : null,
-          orden: 0,
+          nombre: presentacion.nombre,
+          imagen: presentacion.imagen,
+          precio: presentacion.precio,
+          aplica_iva: presentacion.aplica_iva,
+          iva_porcentaje: presentacion.iva_porcentaje,
+          porcentaje_oferta: presentacion.porcentaje_oferta,
+          orden: presentacion.orden,
         })
         .select("id")
         .single();
-      if (errPrincipal) {
-        return rollbackAfterPartialUpdate(`Error al crear presentaci?n Principal: ${errPrincipal.message}`);
+      if (errPresInsert) {
+        return rollbackAfterPartialUpdate(`Error al crear presentaci?n "${presentacion.nombre}": ${errPresInsert.message}`);
       }
-      if (principalInsertada?.id) idsConservados.add(principalInsertada.id);
-    }
-  } else {
-    for (const presentacion of presentacionesResult.presentaciones) {
-      if (presentacion.id && idsExistentes.has(presentacion.id)) {
-        const imagenAnterior = presentacionesExistentesMap.get(presentacion.id)?.imagen ?? null;
-        const { error: errPresUpdate } = await supabase
-          .from("producto_presentaciones")
-          .update({
-            nombre: presentacion.nombre,
-            imagen: presentacion.imagen,
-            precio: presentacion.precio,
-            aplica_iva: presentacion.aplica_iva,
-            iva_porcentaje: presentacion.iva_porcentaje,
-            porcentaje_oferta: presentacion.porcentaje_oferta,
-            orden: presentacion.orden,
-          })
-          .eq("id", presentacion.id)
-          .eq("producto_id", id);
-        if (errPresUpdate) {
-          return rollbackAfterPartialUpdate(`Error al actualizar presentaci?n "${presentacion.nombre}": ${errPresUpdate.message}`);
-        }
-        const oldImagePath = extraerPathDesdeUrlPublica(imagenAnterior);
-        const newImagePath = extraerPathDesdeUrlPublica(presentacion.imagen);
-        if (oldImagePath && oldImagePath !== newImagePath) {
-          imagePathsToDelete.push(oldImagePath);
-        }
-        idsConservados.add(presentacion.id);
-      } else {
-        const { data: presentacionInsertada, error: errPresInsert } = await supabase
-          .from("producto_presentaciones")
-          .insert({
-            producto_id: id,
-            nombre: presentacion.nombre,
-            imagen: presentacion.imagen,
-            precio: presentacion.precio,
-            aplica_iva: presentacion.aplica_iva,
-            iva_porcentaje: presentacion.iva_porcentaje,
-            porcentaje_oferta: presentacion.porcentaje_oferta,
-            orden: presentacion.orden,
-          })
-          .select("id")
-          .single();
-        if (errPresInsert) {
-          return rollbackAfterPartialUpdate(`Error al crear presentaci?n "${presentacion.nombre}": ${errPresInsert.message}`);
-        }
-        if (presentacionInsertada?.id) idsConservados.add(presentacionInsertada.id);
-      }
+      if (presentacionInsertada?.id) idsConservados.add(presentacionInsertada.id);
     }
   }
 

@@ -67,6 +67,14 @@ function getTipoProductoName(p: ProductoRow) {
   return tipo?.nombre ?? "-";
 }
 
+function getPrecioBaseDisplay(p: ProductoRow) {
+  const presentaciones = Array.isArray(p.producto_presentaciones)
+    ? [...p.producto_presentaciones].sort((a, b) => a.orden - b.orden)
+    : [];
+  const precioPresentacion = presentaciones.find((presentacion) => presentacion.precio != null)?.precio;
+  return Number(precioPresentacion ?? p.precio ?? 0);
+}
+
 export function ProductosClient({
   productos,
   categorias,
@@ -310,7 +318,7 @@ export function ProductosClient({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    ${Number(p.precio).toLocaleString("es-CO")}
+                    ${getPrecioBaseDisplay(p).toLocaleString("es-CO")}
                   </td>
                   <td className="px-4 py-3">
                     <span

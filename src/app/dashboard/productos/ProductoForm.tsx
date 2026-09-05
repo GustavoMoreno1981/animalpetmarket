@@ -148,6 +148,13 @@ export function ProductoForm({
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    const presentacionesValidas = presentacionesList.filter(
+      (presentacion) => presentacion.nombre.trim() && String(presentacion.precio ?? "").trim()
+    );
+    if (presentacionesValidas.length === 0) {
+      setError("Debes agregar al menos una presentación con gramaje y precio.");
+      return;
+    }
     const form = e.currentTarget;
     const formData = new FormData(form);
 
@@ -252,18 +259,6 @@ export function ProductoForm({
             <input
               name="nombre"
               defaultValue={producto?.nombre}
-              required
-              className="h-10 w-full rounded-lg border border-slate-200 px-3"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-semibold">Precio ($) *</label>
-            <input
-              name="precio"
-              type="number"
-              step="0.01"
-              min="0"
-              defaultValue={producto?.precio ?? 0}
               required
               className="h-10 w-full rounded-lg border border-slate-200 px-3"
             />
@@ -445,7 +440,7 @@ export function ProductoForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-semibold">Imagen</label>
+          <label className="mb-1 block text-sm font-semibold">Imagen principal</label>
           <input
             name="imagen"
             type="file"
@@ -459,6 +454,9 @@ export function ProductoForm({
               className="mt-2 h-20 w-20 rounded-lg object-cover"
             />
           )}
+        </div>
+        <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-900">
+          La imagen principal se carga aquí, pero el gramaje, el precio y la información de cada variante se registran abajo en <strong>Presentaciones</strong>.
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
           <p className="mb-3 text-sm font-semibold text-slate-700">
@@ -494,7 +492,7 @@ export function ProductoForm({
           </button>
         </div>
         <p className="mb-4 text-sm text-slate-500">
-          Ej: 500g, 1kg, 2kg. Cada presentación puede tener su imagen y precio.
+          Agrega aquí cada gramaje o presentación real del producto. Ej: 500g, 1kg, 2kg.
         </p>
         <div className="space-y-4">
           {presentacionesList.map((p, i) => (
@@ -507,7 +505,7 @@ export function ProductoForm({
               )}
               <div className="min-w-[120px] flex-1">
                 <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Nombre (ej: 500g)
+                  Gramaje / presentación
                 </label>
                 <input
                   type="text"
@@ -518,13 +516,13 @@ export function ProductoForm({
                       prev.map((x, j) => (j === i ? { ...x, nombre: e.target.value } : x))
                     )
                   }
-                  placeholder="500g, 1kg..."
+                  placeholder="500g, 1kg, 3 kg, 85 g..."
                   className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
                 />
               </div>
               <div className="min-w-[100px] flex-1">
                 <label className="mb-1 block text-xs font-medium text-slate-600">
-                  Precio ($) opcional
+                  Precio ($) *
                 </label>
                 <input
                   type="number"
@@ -537,6 +535,7 @@ export function ProductoForm({
                       prev.map((x, j) => (j === i ? { ...x, precio: e.target.value } : x))
                     )
                   }
+                  required={Boolean(p.nombre.trim())}
                   className="h-9 w-full rounded-lg border border-slate-200 px-3 text-sm"
                 />
               </div>

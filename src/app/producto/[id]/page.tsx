@@ -82,7 +82,7 @@ export default async function ProductoPage({
       : Number(producto.precio);
 
   const imagenes: { url: string; label?: string }[] = [];
-  if (producto.imagen) imagenes.push({ url: producto.imagen, label: "Principal" });
+  if (producto.imagen) imagenes.push({ url: producto.imagen, label: "Imagen principal" });
   (presentaciones ?? [])
     .sort((a, b) => a.orden - b.orden)
     .forEach((p) => {

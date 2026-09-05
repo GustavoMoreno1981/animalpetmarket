@@ -61,18 +61,7 @@ export function ProductoDetalle({
   const router = useRouter();
   const [agregado, setAgregado] = useState(false);
   const sortedPresentaciones = [...presentaciones].sort((a, b) => a.orden - b.orden);
-
-  const ofertaPrincipal = porcentajeOfertaBase ?? 0;
-  const precioPrincipalBase = ofertaPrincipal > 0 ? precioBase * (1 - ofertaPrincipal / 100) : precioBase;
-  const precioPrincipalFinal = aplicarIva(precioPrincipalBase, ivaPorcentajeBase);
-  const opciones: Opcion[] = [{
-    nombre: "Principal",
-    precio: precioPrincipalFinal,
-    precioOriginal: precioPrincipalBase,
-    porcentajeOferta: ofertaPrincipal,
-    imagenIndex: 0,
-    ivaPorcentaje: ivaPorcentajeBase,
-  }];
+  const opciones: Opcion[] = [];
   let imgIdx = 1;
   for (const p of sortedPresentaciones) {
     const precioOrig = p.precio != null ? Number(p.precio) : precioBase;
@@ -82,6 +71,20 @@ export function ProductoDetalle({
     const precioFinal = aplicarIva(precioBasePres, ivaPorcentaje);
     const imagenIndex = p.imagen ? imgIdx++ : 0;
     opciones.push({ nombre: p.nombre, precio: precioFinal, precioOriginal: precioBasePres, porcentajeOferta: oferta, imagenIndex, ivaPorcentaje });
+  }
+
+  if (opciones.length === 0) {
+    const ofertaPrincipal = porcentajeOfertaBase ?? 0;
+    const precioPrincipalBase = ofertaPrincipal > 0 ? precioBase * (1 - ofertaPrincipal / 100) : precioBase;
+    const precioPrincipalFinal = aplicarIva(precioPrincipalBase, ivaPorcentajeBase);
+    opciones.push({
+      nombre,
+      precio: precioPrincipalFinal,
+      precioOriginal: precioPrincipalBase,
+      porcentajeOferta: ofertaPrincipal,
+      imagenIndex: 0,
+      ivaPorcentaje: ivaPorcentajeBase,
+    });
   }
 
   const [seleccionada, setSeleccionada] = useState(0);
@@ -148,6 +151,12 @@ export function ProductoDetalle({
             </span>
           )}
         </div>
+
+        {opcion && (
+          <p className="mt-3 text-sm font-semibold text-slate-600">
+            Presentación: <span className="text-slate-800">{opcion.nombre}</span>
+          </p>
+        )}
 
         {/* Presentaciones - seleccionables */}
         {opciones.length > 1 && (
@@ -271,7 +280,7 @@ export function ProductoDetalle({
               addToCart({
                 productId,
                 nombre,
-                presentacion: opcion?.nombre ?? "Principal",
+                presentacion: opcion?.nombre ?? nombre,
                 precio: precioActual,
                 imagen: imagenes[imagenActiva]?.url ?? null,
               });

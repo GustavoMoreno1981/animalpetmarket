@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { InventarioClient } from "./InventarioClient";
-import { asegurarPresentacionesPrincipales } from "./actions";
 
 export default async function InventarioPage({
   searchParams,
@@ -9,9 +8,6 @@ export default async function InventarioPage({
 }) {
   const { foco } = await searchParams;
   const supabase = await createClient();
-
-  // Crear "Principal" para productos sin presentación (para que aparezcan en el dropdown)
-  await asegurarPresentacionesPrincipales();
 
   const { data: presentacionesRaw } = await supabase
     .from("producto_presentaciones")
