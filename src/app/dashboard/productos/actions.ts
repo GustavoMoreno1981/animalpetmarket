@@ -14,7 +14,7 @@ const BUCKET = "producto-imagenes";
 const MAX_NOMBRE = 200;
 const MAX_DESCRIPCION = 2000;
 const MAX_PRECIO = 999999999;
-const MAX_PRESENTACION_NOMBRE = 50;
+const MAX_PRESENTACION_NOMBRE = 200;
 const MAX_IMAGEN_MB = 5;
 
 export type Producto = {
