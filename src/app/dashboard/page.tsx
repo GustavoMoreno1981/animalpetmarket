@@ -67,6 +67,7 @@ export default async function DashboardPage() {
         telefono,
         direccion,
         notas,
+        metodo_pago,
         total,
         estado,
         pedido_items (

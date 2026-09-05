@@ -17,6 +17,7 @@ export default async function PedidosPage() {
       telefono,
       direccion,
       notas,
+      metodo_pago,
       total,
       estado,
       created_at,
@@ -59,7 +60,9 @@ export default async function PedidosPage() {
     const rawD = p.domiciliarios as { nombre: string } | { nombre: string }[] | null;
     const v = Array.isArray(rawV) ? rawV[0] : rawV;
     const d = Array.isArray(rawD) ? rawD[0] : rawD;
-    const { vendedores, domiciliarios: _d, ...rest } = p;
+    const rest = { ...p };
+    delete (rest as { vendedores?: unknown }).vendedores;
+    delete (rest as { domiciliarios?: unknown }).domiciliarios;
     return {
       ...rest,
       ventas: ventasPorPedido[p.id] ? [ventasPorPedido[p.id]] : null,

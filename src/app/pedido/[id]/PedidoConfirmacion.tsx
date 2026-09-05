@@ -1,6 +1,7 @@
 "use client";
 
 import { obtenerPedidoPorId, type PedidoResumen } from "@/app/checkout/actions";
+import { etiquetaMetodoPago } from "@/lib/pedidos";
 import { Check, Download, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -90,6 +91,9 @@ export function PedidoConfirmacion({ pedido }: { pedido: PedidoResumen }) {
                 Notas: {pedidoActual.notas}
               </p>
             )}
+            <p className="mt-2 text-sm text-slate-600">
+              Método de pago: <span className="font-semibold">{etiquetaMetodoPago(pedidoActual.metodo_pago)}</span>
+            </p>
           </div>
 
           <div className="mt-6">

@@ -26,6 +26,7 @@ export default async function FacturaPublicaPage({
       telefono,
       direccion,
       notas,
+      metodo_pago,
       total,
       estado,
       created_at,

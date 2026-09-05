@@ -1,6 +1,12 @@
 "use client";
 
 import { useCart } from "@/context/CartContext";
+import {
+  etiquetaMetodoPago,
+  METODO_PAGO_POR_DEFECTO,
+  METODOS_PAGO_PEDIDO,
+  type MetodoPagoPedido,
+} from "@/lib/pedidos";
 import { Check, Package, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +20,7 @@ export function CheckoutClient() {
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
   const [notas, setNotas] = useState("");
+  const [metodoPago, setMetodoPago] = useState<MetodoPagoPedido>(METODO_PAGO_POR_DEFECTO);
   const [cuponCodigo, setCuponCodigo] = useState("");
   const [cuponAplicado, setCuponAplicado] = useState<{ porcentaje: number } | null>(null);
   const [cuponError, setCuponError] = useState<string | null>(null);
@@ -128,6 +135,33 @@ export function CheckoutClient() {
             </div>
             <div>
               <label className="mb-1 block text-sm font-semibold text-slate-700">
+                ¿Cómo vas a pagar? *
+              </label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {METODOS_PAGO_PEDIDO.map((opcion) => (
+                  <label
+                    key={opcion}
+                    className={`cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                      metodoPago === opcion
+                        ? "border-[var(--ca-purple)] bg-[var(--ca-purple)]/10 text-[var(--ca-purple)]"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="metodo_pago"
+                      value={opcion}
+                      checked={metodoPago === opcion}
+                      onChange={() => setMetodoPago(opcion)}
+                      className="sr-only"
+                    />
+                    {etiquetaMetodoPago(opcion)}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-slate-700">
                 Notas del pedido
               </label>
               <textarea
@@ -193,6 +227,10 @@ export function CheckoutClient() {
           </div>
           <div className="mt-4 space-y-1">
             <div className="flex justify-between text-sm text-slate-600">
+              <span>Método de pago</span>
+              <span className="font-semibold text-slate-800">{etiquetaMetodoPago(metodoPago)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-slate-600">
               <span>Subtotal</span>
               <span>${total.toLocaleString("es-CO")}</span>
             </div>
@@ -236,7 +274,8 @@ export function CheckoutClient() {
                     cantidad: i.cantidad,
                   })),
                   total,
-                  cuponAplicado ? cuponCodigo.trim() : null
+                  cuponAplicado ? cuponCodigo.trim() : null,
+                  { metodoPago }
                 );
                 setLoading(false);
                 if ("error" in result && result.error) {

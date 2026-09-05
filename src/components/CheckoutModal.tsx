@@ -2,6 +2,12 @@
 
 import { useCart } from "@/context/CartContext";
 import { crearPedido, validarCupon } from "@/app/checkout/actions";
+import {
+  etiquetaMetodoPago,
+  METODO_PAGO_POR_DEFECTO,
+  METODOS_PAGO_PEDIDO,
+  type MetodoPagoPedido,
+} from "@/lib/pedidos";
 import { Check, ChevronRight, Package, Tag, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -39,6 +45,7 @@ export function CheckoutModal({
   const [telefono, setTelefono] = useState("");
   const [direccion, setDireccion] = useState("");
   const [notas, setNotas] = useState("");
+  const [metodoPago, setMetodoPago] = useState<MetodoPagoPedido>(METODO_PAGO_POR_DEFECTO);
   const [cuponCodigo, setCuponCodigo] = useState("");
   const [cuponAplicado, setCuponAplicado] = useState<{ porcentaje: number } | null>(null);
   const [cuponError, setCuponError] = useState<string | null>(null);
@@ -71,6 +78,7 @@ export function CheckoutModal({
     setTelefono("");
     setDireccion("");
     setNotas("");
+    setMetodoPago(METODO_PAGO_POR_DEFECTO);
     setCuponCodigo("");
     setCuponAplicado(null);
     setCuponError(null);
@@ -123,7 +131,8 @@ export function CheckoutModal({
         cantidad: i.cantidad,
       })),
       total,
-      cuponAplicado ? cuponCodigo.trim() : null
+      cuponAplicado ? cuponCodigo.trim() : null,
+      { metodoPago }
     );
     setLoading(false);
     if ("error" in result && result.error) {
@@ -236,6 +245,33 @@ export function CheckoutModal({
                   </li>
                 ))}
               </ul>
+              <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                <p className="text-sm font-semibold text-slate-700">
+                  ¿Cómo vas a pagar tu pedido?
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {METODOS_PAGO_PEDIDO.map((opcion) => (
+                    <label
+                      key={opcion}
+                      className={`cursor-pointer rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                        metodoPago === opcion
+                          ? "border-[var(--ca-purple)] bg-[var(--ca-purple)]/10 text-[var(--ca-purple)]"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="metodo_pago"
+                        value={opcion}
+                        checked={metodoPago === opcion}
+                        onChange={() => setMetodoPago(opcion)}
+                        className="sr-only"
+                      />
+                      {etiquetaMetodoPago(opcion)}
+                    </label>
+                  ))}
+                </div>
+              </div>
               {paso === 5 && (
                 <div className="mt-4 space-y-2 border-t border-slate-200 pt-4">
                   <div className="flex items-center gap-2">
@@ -267,6 +303,9 @@ export function CheckoutModal({
                   )}
                 </div>
               )}
+              <p className="text-right text-sm text-slate-600">
+                Método de pago: <span className="font-semibold text-slate-800">{etiquetaMetodoPago(metodoPago)}</span>
+              </p>
               <p className="mt-2 text-right text-sm text-slate-500">
                 Subtotal: ${total.toLocaleString("es-CO")}
               </p>

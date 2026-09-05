@@ -30,6 +30,7 @@ export default async function PedidoPage({
       telefono,
       direccion,
       notas,
+      metodo_pago,
       total,
       created_at,
       token_factura,

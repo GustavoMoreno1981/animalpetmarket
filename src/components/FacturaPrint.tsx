@@ -1,6 +1,7 @@
 "use client";
 
 import { tieneIva } from "@/lib/iva";
+import { etiquetaMetodoPago } from "@/lib/pedidos";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
@@ -20,6 +21,7 @@ export type PedidoFactura = {
   telefono: string;
   direccion: string;
   notas: string | null;
+  metodo_pago?: string | null;
   total: number;
   estado: string;
   created_at: string;
@@ -105,6 +107,9 @@ export function FacturaPrint({
                 Notas: {pedido.notas}
               </p>
             )}
+            <p className="mt-2 text-sm text-slate-600">
+              Método de pago: {etiquetaMetodoPago(pedido.metodo_pago)}
+            </p>
           </div>
           <div className="rounded-lg bg-slate-50 p-4">
             <h3 className="text-xs font-bold uppercase text-slate-500">Factura</h3>

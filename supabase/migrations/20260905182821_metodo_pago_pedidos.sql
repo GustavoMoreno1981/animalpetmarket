@@ -1,71 +1,29 @@
--- Soportar IVA configurable por producto/presentacion (0%, 5%, 19%)
-alter table productos
-  add column if not exists iva_porcentaje smallint;
+alter table pedidos
+  add column if not exists metodo_pago text;
 
-update productos
-set iva_porcentaje = case when coalesce(aplica_iva, true) then 19 else 0 end
-where iva_porcentaje is null;
+update pedidos
+set metodo_pago = 'efectivo'
+where metodo_pago is null;
 
-alter table productos
-  alter column iva_porcentaje set default 19;
+alter table pedidos
+  alter column metodo_pago set default 'efectivo';
 
-alter table productos
-  alter column iva_porcentaje set not null;
+alter table pedidos
+  alter column metodo_pago set not null;
 
-alter table productos
-  drop constraint if exists productos_iva_porcentaje_check;
+alter table pedidos
+  drop constraint if exists pedidos_metodo_pago_check;
 
-alter table productos
-  add constraint productos_iva_porcentaje_check
-  check (iva_porcentaje in (0, 5, 19));
+alter table pedidos
+  add constraint pedidos_metodo_pago_check
+  check (metodo_pago in ('efectivo', 'codigo_qr'));
 
-comment on column productos.iva_porcentaje is 'Porcentaje de IVA del producto. Valores permitidos: 0, 5, 19.';
-
-alter table producto_presentaciones
-  add column if not exists iva_porcentaje smallint;
-
-update producto_presentaciones
-set iva_porcentaje = case
-  when aplica_iva is true then 19
-  when aplica_iva is false then 0
-  else null
-end
-where iva_porcentaje is null;
-
-alter table producto_presentaciones
-  drop constraint if exists producto_presentaciones_iva_porcentaje_check;
-
-alter table producto_presentaciones
-  add constraint producto_presentaciones_iva_porcentaje_check
-  check (iva_porcentaje in (0, 5, 19) or iva_porcentaje is null);
-
-comment on column producto_presentaciones.iva_porcentaje is 'Porcentaje de IVA de la presentación. Si es null, hereda de productos.iva_porcentaje.';
-
-alter table pedido_items
-  add column if not exists iva_porcentaje smallint;
-
-update pedido_items
-set iva_porcentaje = case when coalesce(aplica_iva, false) then 19 else 0 end
-where iva_porcentaje is null;
-
-alter table pedido_items
-  alter column iva_porcentaje set default 0;
-
-alter table pedido_items
-  alter column iva_porcentaje set not null;
-
-alter table pedido_items
-  drop constraint if exists pedido_items_iva_porcentaje_check;
-
-alter table pedido_items
-  add constraint pedido_items_iva_porcentaje_check
-  check (iva_porcentaje in (0, 5, 19));
-
-comment on column pedido_items.iva_porcentaje is 'Porcentaje de IVA incluido en el precio_unitario del item. Valores permitidos: 0, 5, 19.';
+comment on column pedidos.metodo_pago is 'Método de pago contra entrega. Valores permitidos: efectivo, codigo_qr.';
 
 drop function if exists crear_pedido_transaccional(text, text, text, text, decimal, jsonb);
 drop function if exists crear_pedido_transaccional(text, text, text, text, decimal, jsonb, text);
 drop function if exists crear_pedido_transaccional(text, text, text, text, decimal, jsonb, text, uuid);
+drop function if exists crear_pedido_transaccional(text, text, text, text, decimal, jsonb, text, uuid, text);
 
 create or replace function crear_pedido_transaccional(
   p_nombre_cliente text,
@@ -75,7 +33,8 @@ create or replace function crear_pedido_transaccional(
   p_total decimal,
   p_items jsonb,
   p_cupon_codigo text default null,
-  p_vendedor_id uuid default null
+  p_vendedor_id uuid default null,
+  p_metodo_pago text default 'efectivo'
 )
 returns uuid
 language plpgsql
@@ -104,6 +63,9 @@ begin
   end if;
   if p_items is null or jsonb_array_length(p_items) = 0 then
     raise exception 'El carrito está vacío';
+  end if;
+  if coalesce(nullif(trim(p_metodo_pago), ''), 'efectivo') not in ('efectivo', 'codigo_qr') then
+    raise exception 'Método de pago inválido';
   end if;
 
   v_total_final := p_total;
@@ -145,6 +107,7 @@ begin
     telefono,
     direccion,
     notas,
+    metodo_pago,
     total,
     estado,
     cliente_id,
@@ -155,6 +118,7 @@ begin
     nullif(trim(p_telefono), ''),
     nullif(trim(p_direccion), ''),
     nullif(trim(coalesce(p_notas, '')), ''),
+    coalesce(nullif(trim(p_metodo_pago), ''), 'efectivo'),
     v_total_final,
     'pendiente',
     v_cliente_id,

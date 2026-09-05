@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronDown, ChevronUp, History, MapPin, Phone, Plus, Printer, Search, User, UserCheck } from "lucide-react";
+import { etiquetaMetodoPago } from "@/lib/pedidos";
+import { ChevronDown, ChevronUp, History, MapPin, Phone, Plus, Search, User, UserCheck } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ type Pedido = {
   telefono: string;
   direccion: string;
   notas: string | null;
+  metodo_pago?: string | null;
   total: number;
   estado: string;
   created_at: string;
@@ -374,6 +376,10 @@ export function PedidosClient({
                             {p.notas}
                           </p>
                         )}
+                        <p className="text-sm text-slate-600">
+                          <span className="font-medium">Método de pago:</span>{" "}
+                          {etiquetaMetodoPago(p.metodo_pago)}
+                        </p>
                       </div>
                       <div>
                         <p className="mb-2 text-sm font-bold text-slate-700">

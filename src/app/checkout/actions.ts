@@ -7,6 +7,11 @@ import {
   validarTelefono,
 } from "@/lib/validations";
 import { aplicarIva, resolverIvaPorcentaje } from "@/lib/iva";
+import {
+  esMetodoPagoPedido,
+  METODO_PAGO_POR_DEFECTO,
+  type MetodoPagoPedido,
+} from "@/lib/pedidos";
 import { createAdminClient, requireAuth } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
@@ -132,7 +137,10 @@ export async function crearPedido(
   items: CartItemInput[],
   _totalCliente: number,
   cuponCodigo: string | null,
-  vendedorId?: string | null
+  opciones?: {
+    vendedorId?: string | null;
+    metodoPago?: MetodoPagoPedido;
+  }
 ) {
   if (!nombre?.trim()) return { error: "El nombre es obligatorio" };
   if (!telefono?.trim()) return { error: "El teléfono es obligatorio" };
@@ -149,6 +157,8 @@ export async function crearPedido(
     const errNotas = validarLongitud(notas, MAX_NOTAS, 0);
     if (errNotas) return { error: `Notas: ${errNotas}` };
   }
+  const metodoPago = opciones?.metodoPago ?? METODO_PAGO_POR_DEFECTO;
+  if (!esMetodoPagoPedido(metodoPago)) return { error: "Método de pago inválido" };
 
   const supabase = createAdminClient();
 
@@ -223,7 +233,8 @@ export async function crearPedido(
     p_total: total,
     p_items: itemsParaRpc,
     p_cupon_codigo: cupon,
-    p_vendedor_id: vendedorId ?? null,
+    p_vendedor_id: opciones?.vendedorId ?? null,
+    p_metodo_pago: metodoPago,
   });
 
   if (errRpc) return { error: errRpc.message };
@@ -290,7 +301,10 @@ export async function crearPedidoDesdeDashboard(
     vendedorId = vendedor.id;
   }
 
-  return crearPedido(nombre, telefono, direccion, notas, items, 0, cuponCodigo, vendedorId);
+  return crearPedido(nombre, telefono, direccion, notas, items, 0, cuponCodigo, {
+    vendedorId,
+    metodoPago: METODO_PAGO_POR_DEFECTO,
+  });
 }
 
 export type PedidoResumen = {
@@ -301,6 +315,7 @@ export type PedidoResumen = {
   telefono: string;
   direccion: string;
   notas: string | null;
+  metodo_pago: MetodoPagoPedido;
   total: number;
   created_at: string;
   token_factura: string | null | undefined;
@@ -321,6 +336,7 @@ export async function obtenerPedidoPorId(pedidoId: string): Promise<PedidoResume
       telefono,
       direccion,
       notas,
+      metodo_pago,
       total,
       created_at,
       token_factura,

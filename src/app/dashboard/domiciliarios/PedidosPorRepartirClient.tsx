@@ -1,5 +1,6 @@
 "use client";
 
+import { etiquetaMetodoPago } from "@/lib/pedidos";
 import { Bike, Camera, MapPin, Phone, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { marcarEntregado } from "./marcarEntregadoActions";
@@ -18,6 +19,7 @@ type Pedido = {
   telefono: string;
   direccion: string;
   notas: string | null;
+  metodo_pago?: string | null;
   total: number;
   estado: string;
   pedido_items: PedidoItem[] | PedidoItem | null;
@@ -37,11 +39,6 @@ export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
   const [errorCamara, setErrorCamara] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-
-  const items = (p: Pedido) => {
-    const i = p.pedido_items;
-    return Array.isArray(i) ? i : i ? [i] : [];
-  };
 
   function abrirModal(p: Pedido) {
     setError(null);
@@ -174,6 +171,9 @@ export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
                       {formatNumeroOrden(p.numero_orden)} · {p.nombre_cliente}
                     </p>
                     <p className="text-sm text-slate-500">{p.direccion}</p>
+                    <p className="text-xs font-medium text-slate-600">
+                      Pago: {etiquetaMetodoPago(p.metodo_pago)}
+                    </p>
                     {p.estado !== "despachado" && (
                       <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
                         En preparación
@@ -237,6 +237,10 @@ export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
                     <span className="font-medium">Notas:</span> {modalPedido.notas}
                   </p>
                 )}
+                <p className="text-slate-600">
+                  <span className="font-medium">Método de pago:</span>{" "}
+                  {etiquetaMetodoPago(modalPedido.metodo_pago)}
+                </p>
               </div>
 
               <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 text-center">
