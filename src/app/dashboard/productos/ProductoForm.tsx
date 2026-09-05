@@ -253,7 +253,7 @@ export function ProductoForm({
       {/* Datos básicos */}
       <div className="space-y-4">
         <h3 className="font-bold text-slate-700">Datos básicos</h3>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4">
           <div>
             <label className="mb-1 block text-sm font-semibold">Nombre *</label>
             <input
@@ -262,34 +262,6 @@ export function ProductoForm({
               required
               className="h-10 w-full rounded-lg border border-slate-200 px-3"
             />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-semibold">Oferta (%)</label>
-            <input
-              type="number"
-              name="porcentaje_oferta"
-              min={0}
-              max={99}
-              placeholder="0"
-              defaultValue={producto?.porcentaje_oferta ?? ""}
-              className="h-10 w-24 rounded-lg border border-slate-200 px-3 text-sm"
-            />
-            <span className="ml-2 text-xs text-slate-500">(aparece en ofertas)</span>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-semibold">IVA</label>
-            <select
-              name="iva_porcentaje"
-              defaultValue={String(producto?.iva_porcentaje ?? (producto?.aplica_iva === false ? 0 : IVA_POR_DEFECTO))}
-              className="h-10 rounded-lg border border-slate-200 px-3 text-sm"
-            >
-              {IVA_OPCIONES.map((iva) => (
-                <option key={iva} value={iva}>
-                  {iva === 0 ? "Sin IVA" : `IVA ${iva}%`}
-                </option>
-              ))}
-            </select>
-            <span className="ml-2 text-xs text-slate-500">(por defecto 19%)</span>
           </div>
         </div>
         <div>
@@ -456,7 +428,7 @@ export function ProductoForm({
           )}
         </div>
         <div className="rounded-lg border border-sky-200 bg-sky-50/70 p-4 text-sm text-sky-900">
-          La imagen principal se carga aquí, pero el gramaje, el precio y la información de cada variante se registran abajo en <strong>Presentaciones</strong>.
+          La imagen principal se carga aquí, pero el gramaje, el precio, la oferta, el IVA y la información de cada variante se registran abajo en <strong>Presentaciones</strong>.
         </div>
         <div className="rounded-lg border border-amber-200 bg-amber-50/50 p-4">
           <p className="mb-3 text-sm font-semibold text-slate-700">

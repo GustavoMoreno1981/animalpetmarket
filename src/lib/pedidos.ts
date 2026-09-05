@@ -1,4 +1,4 @@
-export const METODOS_PAGO_PEDIDO = ["efectivo", "codigo_qr"] as const;
+export const METODOS_PAGO_PEDIDO = ["efectivo", "codigo_qr", "tarjeta"] as const;
 
 export type MetodoPagoPedido = (typeof METODOS_PAGO_PEDIDO)[number];
 
@@ -14,6 +14,8 @@ export function etiquetaMetodoPago(valor: string | null | undefined) {
       return "Efectivo";
     case "codigo_qr":
       return "Código QR";
+    case "tarjeta":
+      return "Tarjeta";
     default:
       return "No definido";
   }

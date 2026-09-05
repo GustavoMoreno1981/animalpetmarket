@@ -459,7 +459,8 @@ export async function crearProducto(formData: FormData) {
     return { error: "Debes agregar al menos una presentaci?n con gramaje y precio" };
   }
   uploadedImagePaths.push(...presentacionesResult.uploadedImagePaths);
-  const precio = Number(presentacionesResult.presentaciones[0]?.precio ?? 0);
+  const presentacionBase = presentacionesResult.presentaciones[0];
+  const precio = Number(presentacionBase?.precio ?? 0);
   const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio de la primera presentaci?n");
   if (errPrecio) {
     await eliminarImagenesSubidas(uploadedImagePaths);
@@ -488,17 +489,15 @@ export async function crearProducto(formData: FormData) {
     if (res.path) uploadedImagePaths.push(res.path);
   }
 
-  const ivaProductoResult = parseIvaPorcentaje(formData.get("iva_porcentaje"), "IVA");
-  if ("error" in ivaProductoResult) return ivaProductoResult;
-  const aplicaIva = ivaProductoResult.aplicaIva;
-  const porcentajeOfertaVal = formData.get("porcentaje_oferta") as string;
-  const porcentajeOferta = porcentajeOfertaVal ? parseInt(porcentajeOfertaVal, 10) : null;
+  const aplicaIva = presentacionBase?.aplica_iva ?? true;
+  const ivaPorcentajeProducto = presentacionBase?.iva_porcentaje ?? 19;
+  const porcentajeOferta = presentacionBase?.porcentaje_oferta ?? null;
   const insert: Record<string, unknown> = {
     nombre: sanitizarTexto(nombre, MAX_NOMBRE),
     descripcion: desc ? sanitizarTexto(desc, MAX_DESCRIPCION) : null,
     precio,
     aplica_iva: aplicaIva,
-    iva_porcentaje: ivaProductoResult.ivaPorcentaje,
+    iva_porcentaje: ivaPorcentajeProducto,
     imagen,
     subcategoria_id,
     tipo_producto_id,
@@ -607,7 +606,8 @@ export async function actualizarProducto(id: string, formData: FormData) {
     return { error: "Debes conservar al menos una presentaci?n con gramaje y precio" };
   }
   uploadedImagePaths.push(...presentacionesResult.uploadedImagePaths);
-  const precio = Number(presentacionesResult.presentaciones[0]?.precio ?? 0);
+  const presentacionBase = presentacionesResult.presentaciones[0];
+  const precio = Number(presentacionBase?.precio ?? 0);
   const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio de la primera presentaci?n");
   if (errPrecio) {
     await eliminarImagenesSubidas(uploadedImagePaths);
@@ -748,17 +748,15 @@ export async function actualizarProducto(id: string, formData: FormData) {
     if (res.path) uploadedImagePaths.push(res.path);
   }
 
-  const ivaProductoResult = parseIvaPorcentaje(formData.get("iva_porcentaje"), "IVA");
-  if ("error" in ivaProductoResult) return ivaProductoResult;
-  const aplicaIva = ivaProductoResult.aplicaIva;
-  const porcentajeOfertaVal = formData.get("porcentaje_oferta") as string;
-  const porcentajeOferta = porcentajeOfertaVal ? parseInt(porcentajeOfertaVal, 10) : null;
+  const aplicaIva = presentacionBase?.aplica_iva ?? true;
+  const ivaPorcentajeProducto = presentacionBase?.iva_porcentaje ?? 19;
+  const porcentajeOferta = presentacionBase?.porcentaje_oferta ?? null;
   const update: Record<string, unknown> = {
     nombre: sanitizarTexto(nombre, MAX_NOMBRE),
     descripcion: descUpdate ? sanitizarTexto(descUpdate, MAX_DESCRIPCION) : null,
     precio,
     aplica_iva: aplicaIva,
-    iva_porcentaje: ivaProductoResult.ivaPorcentaje,
+    iva_porcentaje: ivaPorcentajeProducto,
     porcentaje_oferta: porcentajeOferta != null && porcentajeOferta >= 1 && porcentajeOferta <= 99 ? porcentajeOferta : null,
     subcategoria_id,
     tipo_producto_id,
