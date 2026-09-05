@@ -16,11 +16,11 @@ export type Categoria = {
 
 const BUCKET = "categoria-imagenes";
 
-async function subirImagen(file: File): Promise<string | null> {
-  if (!file?.size) return null;
-  if (file.size > MAX_IMAGEN_MB * 1024 * 1024) return null;
+async function subirImagen(file: File): Promise<{ url: string; path: string } | { error: string }> {
+  if (!file?.size) return { url: "", path: "" };
+  if (file.size > MAX_IMAGEN_MB * 1024 * 1024) return { error: `La imagen no puede superar ${MAX_IMAGEN_MB} MB` };
   const tipos = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-  if (!tipos.includes(file.type)) return null;
+  if (!tipos.includes(file.type)) return { error: "Formato de imagen no permitido (JPEG, PNG, WebP, GIF)" };
   const supabase = createAdminClient();
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${crypto.randomUUID()}.${ext}`;
@@ -28,9 +28,28 @@ async function subirImagen(file: File): Promise<string | null> {
     contentType: file.type,
     upsert: false,
   });
-  if (error) return null;
+  if (error) return { error: error.message };
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  return { url: data.publicUrl, path };
+}
+
+function extraerPathDesdeUrlPublica(url: string | null | undefined) {
+  if (!url) return null;
+  const marcador = `/${BUCKET}/`;
+  const idx = url.indexOf(marcador);
+  if (idx === -1) return null;
+  return decodeURIComponent(url.slice(idx + marcador.length));
+}
+
+async function eliminarImagenesSubidas(paths: string[]) {
+  const pathsValidos = [...new Set(paths.filter(Boolean))];
+  if (pathsValidos.length === 0) return;
+  try {
+    const supabase = createAdminClient();
+    await supabase.storage.from(BUCKET).remove(pathsValidos);
+  } catch {
+    // No bloqueamos la respuesta si falla la limpieza del storage.
+  }
 }
 
 export async function crearCategoria(formData: FormData) {
@@ -44,11 +63,13 @@ export async function crearCategoria(formData: FormData) {
 
   const supabase = await createClient();
   const file = formData.get("imagen") as File | null;
+  const uploadedImagePaths: string[] = [];
   let imagen: string | null = null;
   if (file?.size) {
-    if (file.size > MAX_IMAGEN_MB * 1024 * 1024) return { error: `La imagen no puede superar ${MAX_IMAGEN_MB} MB` };
-    imagen = await subirImagen(file);
-    if (!imagen) return { error: "No se pudo subir la imagen. Verifica el bucket categoria-imagenes en Supabase." };
+    const res = await subirImagen(file);
+    if ("error" in res) return { error: res.error };
+    imagen = res.url || null;
+    if (res.path) uploadedImagePaths.push(res.path);
   }
 
   const { error } = await supabase.from("categorias").insert({
@@ -57,6 +78,7 @@ export async function crearCategoria(formData: FormData) {
   });
 
   if (error) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
     if (error.code === "23505") return { error: "Ya existe una categoría con ese nombre" };
     return { error: error.message };
   }
@@ -77,16 +99,25 @@ export async function actualizarCategoria(id: string, formData: FormData) {
   if (errNombre) return { error: errNombre };
 
   const supabase = await createClient();
+  const admin = createAdminClient();
+  const { data: categoriaActual, error: categoriaActualError } = await admin
+    .from("categorias")
+    .select("imagen")
+    .eq("id", id)
+    .maybeSingle();
+  if (categoriaActualError) return { error: categoriaActualError.message };
+
   const file = formData.get("imagen") as File | null;
   const quitarFoto = formData.get("quitar_foto") === "1";
-  if (file?.size && file.size > MAX_IMAGEN_MB * 1024 * 1024) return { error: `La imagen no puede superar ${MAX_IMAGEN_MB} MB` };
+  const uploadedImagePaths: string[] = [];
   let imagen: string | null | undefined;
   if (quitarFoto) {
     imagen = null;
   } else if (file?.size) {
-    const url = await subirImagen(file);
-    if (!url) return { error: "No se pudo subir la imagen. Verifica el bucket categoria-imagenes en Supabase." };
-    imagen = url;
+    const res = await subirImagen(file);
+    if ("error" in res) return { error: res.error };
+    imagen = res.url;
+    if (res.path) uploadedImagePaths.push(res.path);
   }
 
   const update: { nombre: string; imagen?: string | null } = { nombre: sanitizarTexto(nombre, MAX_NOMBRE) };
@@ -98,8 +129,15 @@ export async function actualizarCategoria(id: string, formData: FormData) {
     .eq("id", id);
 
   if (error) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
     if (error.code === "23505") return { error: "Ya existe una categoría con ese nombre" };
     return { error: error.message };
+  }
+
+  const oldImagePath = extraerPathDesdeUrlPublica(categoriaActual?.imagen);
+  const newImagePath = extraerPathDesdeUrlPublica(imagen);
+  if (imagen !== undefined && oldImagePath && oldImagePath !== newImagePath) {
+    await eliminarImagenesSubidas([oldImagePath]);
   }
 
   revalidatePath("/dashboard/categorias");

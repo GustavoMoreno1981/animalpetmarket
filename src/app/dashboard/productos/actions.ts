@@ -66,6 +66,45 @@ type PresentacionFormInput = {
   iva_porcentaje: number;
 };
 
+type ProductoPresentacionSnapshot = {
+  id: string;
+  nombre: string;
+  imagen: string | null;
+  precio: number | null;
+  orden: number;
+  porcentaje_oferta: number | null;
+  aplica_iva: boolean | null;
+  iva_porcentaje: number | null;
+  created_at?: string;
+};
+
+type ProductoUpdateSnapshot = {
+  producto: {
+    nombre: string;
+    descripcion: string | null;
+    precio: number | string;
+    aplica_iva: boolean | null;
+    iva_porcentaje: number | null;
+    imagen: string | null;
+    subcategoria_id: string;
+    porcentaje_oferta: number | null;
+    peso: number | null;
+    dimensiones: string | null;
+    requiere_refrigeracion: boolean;
+    producto_fragil: boolean;
+    destacado: boolean;
+    nuevo: boolean;
+    mas_vendido: boolean;
+    recomendado: boolean;
+    secciones_activas: string[] | null;
+    datos_medicamento: Record<string, unknown> | null;
+    datos_alimento: Record<string, unknown> | null;
+    datos_juguete: Record<string, unknown> | null;
+  };
+  subcategoriaIds: string[];
+  presentaciones: ProductoPresentacionSnapshot[];
+};
+
 async function subirImagen(
   file: File
 ): Promise<{ url: string; path: string } | { error: string }> {
@@ -74,7 +113,7 @@ async function subirImagen(
   const tipos = ["image/jpeg", "image/png", "image/webp", "image/gif"];
   if (!tipos.includes(file.type)) return { error: "Formato de imagen no permitido (JPEG, PNG, WebP, GIF)" };
   if (!process.env.SUPABASE_SECRET_KEY) {
-    return { error: "Configura SUPABASE_SECRET_KEY en .env.local para subir imágenes" };
+    return { error: "Configura SUPABASE_SECRET_KEY en .env.local para subir im?genes" };
   }
   try {
     const supabase = createAdminClient();
@@ -117,12 +156,12 @@ async function revertirCreacionProducto(productoId: string, uploadedImagePaths: 
     const supabase = createAdminClient();
     const { error } = await supabase.from("productos").delete().eq("id", productoId);
     if (error) {
-      return `Además no se pudo revertir el producto creado: ${error.message}`;
+      return `Adem?s no se pudo revertir el producto creado: ${error.message}`;
     }
     await eliminarImagenesSubidas(uploadedImagePaths);
     return null;
   } catch (e) {
-    return `Además no se pudo revertir el producto creado: ${e instanceof Error ? e.message : "error inesperado"}`;
+    return `Adem?s no se pudo revertir el producto creado: ${e instanceof Error ? e.message : "error inesperado"}`;
   }
 }
 
@@ -149,7 +188,7 @@ function parseSubcategoriaIds(
   const ids = [...new Set([subcategoriaPrincipalId, ...idsCrudos].filter(Boolean))];
 
   for (const id of ids) {
-    if (!isValidUUID(id)) return { error: "Subcategoría adicional inválida" };
+    if (!isValidUUID(id)) return { error: "Subcategor?a adicional inv?lida" };
   }
 
   return { ids };
@@ -162,9 +201,124 @@ function parseIvaPorcentaje(
   const texto = String(valor ?? "").trim();
   const porcentaje = texto ? parseInt(texto, 10) : IVA_POR_DEFECTO;
   if (!IVA_OPCIONES.includes(porcentaje as (typeof IVA_OPCIONES)[number])) {
-    return { error: `${campo}: selecciona un IVA válido` };
+    return { error: `${campo}: selecciona un IVA v?lido` };
   }
   return { ivaPorcentaje: porcentaje, aplicaIva: porcentaje > 0 };
+}
+
+async function restaurarProductoDesdeSnapshot(
+  productoId: string,
+  snapshot: ProductoUpdateSnapshot
+): Promise<string | null> {
+  try {
+    const supabase = createAdminClient();
+
+    const { error: errProducto } = await supabase
+      .from("productos")
+      .update({
+        nombre: snapshot.producto.nombre,
+        descripcion: snapshot.producto.descripcion,
+        precio: snapshot.producto.precio,
+        aplica_iva: snapshot.producto.aplica_iva,
+        iva_porcentaje: snapshot.producto.iva_porcentaje,
+        imagen: snapshot.producto.imagen,
+        subcategoria_id: snapshot.producto.subcategoria_id,
+        porcentaje_oferta: snapshot.producto.porcentaje_oferta,
+        peso: snapshot.producto.peso,
+        dimensiones: snapshot.producto.dimensiones,
+        requiere_refrigeracion: snapshot.producto.requiere_refrigeracion,
+        producto_fragil: snapshot.producto.producto_fragil,
+        destacado: snapshot.producto.destacado,
+        nuevo: snapshot.producto.nuevo,
+        mas_vendido: snapshot.producto.mas_vendido,
+        recomendado: snapshot.producto.recomendado,
+        secciones_activas: snapshot.producto.secciones_activas ?? [],
+        datos_medicamento: snapshot.producto.datos_medicamento,
+        datos_alimento: snapshot.producto.datos_alimento,
+        datos_juguete: snapshot.producto.datos_juguete,
+      })
+      .eq("id", productoId);
+    if (errProducto) return `Adem?s no se pudo restaurar el producto: ${errProducto.message}`;
+
+    const { error: errDeleteRel } = await supabase
+      .from("producto_subcategorias")
+      .delete()
+      .eq("producto_id", productoId);
+    if (errDeleteRel) {
+      return `Adem?s no se pudieron restaurar las subcategor?as del producto: ${errDeleteRel.message}`;
+    }
+
+    const subcategoriaIds = [...new Set(snapshot.subcategoriaIds.filter(Boolean))];
+    if (subcategoriaIds.length > 0) {
+      const { error: errInsertRel } = await supabase.from("producto_subcategorias").insert(
+        subcategoriaIds.map((subcategoriaId) => ({
+          producto_id: productoId,
+          subcategoria_id: subcategoriaId,
+        }))
+      );
+      if (errInsertRel) {
+        return `Adem?s no se pudieron restaurar las subcategor?as del producto: ${errInsertRel.message}`;
+      }
+    }
+
+    const { data: presentacionesActuales, error: errPresentacionesActuales } = await supabase
+      .from("producto_presentaciones")
+      .select("id")
+      .eq("producto_id", productoId);
+    if (errPresentacionesActuales) {
+      return `Adem?s no se pudieron consultar las presentaciones para restaurar: ${errPresentacionesActuales.message}`;
+    }
+
+    const idsSnapshot = new Set(snapshot.presentaciones.map((p) => p.id));
+    const idsActuales = (presentacionesActuales ?? []).map((p) => p.id);
+    const idsCreados = idsActuales.filter((id) => !idsSnapshot.has(id));
+    if (idsCreados.length > 0) {
+      const { error: errDeleteCreados } = await supabase
+        .from("producto_presentaciones")
+        .delete()
+        .in("id", idsCreados);
+      if (errDeleteCreados) {
+        return `Adem?s no se pudieron limpiar presentaciones nuevas: ${errDeleteCreados.message}`;
+      }
+    }
+
+    const idsRestantes = new Set(idsActuales.filter((id) => idsSnapshot.has(id)));
+    for (const presentacion of snapshot.presentaciones) {
+      const payload = {
+        nombre: presentacion.nombre,
+        imagen: presentacion.imagen,
+        precio: presentacion.precio,
+        orden: presentacion.orden,
+        porcentaje_oferta: presentacion.porcentaje_oferta,
+        aplica_iva: presentacion.aplica_iva,
+        iva_porcentaje: presentacion.iva_porcentaje,
+      };
+
+      if (idsRestantes.has(presentacion.id)) {
+        const { error: errUpdatePres } = await supabase
+          .from("producto_presentaciones")
+          .update(payload)
+          .eq("id", presentacion.id)
+          .eq("producto_id", productoId);
+        if (errUpdatePres) {
+          return `Adem?s no se pudo restaurar la presentaci?n "${presentacion.nombre}": ${errUpdatePres.message}`;
+        }
+      } else {
+        const { error: errInsertPres } = await supabase.from("producto_presentaciones").insert({
+          id: presentacion.id,
+          producto_id: productoId,
+          ...payload,
+        });
+        if (errInsertPres) {
+          return `Adem?s no se pudo restaurar la presentaci?n "${presentacion.nombre}": ${errInsertPres.message}`;
+        }
+      }
+    }
+
+    return null;
+  } catch (e) {
+    return `Adem?s no se pudo restaurar el producto: ${e instanceof Error ? e.message : "error inesperado"}`;
+  }
 }
 
 async function extraerPresentacionesDesdeFormData(
@@ -185,24 +339,24 @@ async function extraerPresentacionesDesdeFormData(
 
     const errPresNombre = validarLongitud(nombrePres, MAX_PRESENTACION_NOMBRE);
     if (errPresNombre) {
-      return { error: `Presentación ${i + 1}: ${errPresNombre}`, uploadedImagePaths };
+      return { error: `Presentaci?n ${i + 1}: ${errPresNombre}`, uploadedImagePaths };
     }
 
     const precioVal = formData.get(`presentacion_${i}_precio`) as string;
     const precioPres = precioVal ? parseFloat(precioVal) : null;
     if (precioPres != null && (precioPres < 0 || precioPres > MAX_PRECIO)) {
-      return { error: `Presentación "${nombrePres}": precio inválido`, uploadedImagePaths };
+      return { error: `Presentaci?n "${nombrePres}": precio inv?lido`, uploadedImagePaths };
     }
 
     const idRaw = formData.get(`presentacion_${i}_id`) as string | null;
     const id = idRaw?.trim() ? idRaw : undefined;
     if (id && !isValidUUID(id)) {
-      return { error: `Presentación "${nombrePres}": ID inválido`, uploadedImagePaths };
+      return { error: `Presentaci?n "${nombrePres}": ID inv?lido`, uploadedImagePaths };
     }
 
     const ivaPresResult = parseIvaPorcentaje(
       formData.get(`presentacion_${i}_iva_porcentaje`),
-      `Presentación ${i + 1}`
+      `Presentaci?n ${i + 1}`
     );
     if ("error" in ivaPresResult) return { ...ivaPresResult, uploadedImagePaths };
 
@@ -213,7 +367,7 @@ async function extraerPresentacionesDesdeFormData(
     let imagen: string | null = null;
     if (file?.size) {
       const res = await subirImagen(file);
-      if ("error" in res) return { error: `Presentación ${i + 1} imagen: ${res.error}`, uploadedImagePaths };
+      if ("error" in res) return { error: `Presentaci?n ${i + 1} imagen: ${res.error}`, uploadedImagePaths };
       if ("url" in res && res.url) {
         imagen = res.url;
         if (res.path) uploadedImagePaths.push(res.path);
@@ -250,23 +404,23 @@ export async function crearProducto(formData: FormData) {
   const subcategoria_id = formData.get("subcategoria_id") as string;
 
   if (!nombre?.trim()) return { error: "El nombre es obligatorio" };
-  if (!subcategoria_id) return { error: "Selecciona una subcategoría" };
+  if (!subcategoria_id) return { error: "Selecciona una subcategor?a" };
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
   const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio");
   if (errPrecio) return { error: errPrecio };
-  if (!isValidUUID(subcategoria_id)) return { error: "Subcategoría inválida" };
+  if (!isValidUUID(subcategoria_id)) return { error: "Subcategor?a inv?lida" };
   const subcategoriasResult = parseSubcategoriaIds(formData, subcategoria_id);
   if ("error" in subcategoriasResult) return subcategoriasResult;
 
   const desc = (formData.get("descripcion") as string) || "";
   if (desc) {
     const errDesc = validarLongitud(desc, MAX_DESCRIPCION, 0);
-    if (errDesc) return { error: `Descripción: ${errDesc}` };
+    if (errDesc) return { error: `Descripci?n: ${errDesc}` };
   }
 
   const dim = (formData.get("dimensiones") as string) || "";
-  if (dim && dim.length > 100) return { error: "Dimensiones: máximo 100 caracteres" };
+  if (dim && dim.length > 100) return { error: "Dimensiones: m?ximo 100 caracteres" };
 
   const uploadedImagePaths: string[] = [];
   const presentacionesResult = await extraerPresentacionesDesdeFormData(formData);
@@ -342,7 +496,7 @@ export async function crearProducto(formData: FormData) {
   if (errRelaciones) {
     const revertError = await revertirCreacionProducto(productoId, uploadedImagePaths);
     return {
-      error: `Error al guardar subcategorías del producto: ${errRelaciones.message}${revertError ? `. ${revertError}` : ""}`,
+      error: `Error al guardar subcategor?as del producto: ${errRelaciones.message}${revertError ? `. ${revertError}` : ""}`,
     };
   }
 
@@ -380,7 +534,7 @@ export async function crearProducto(formData: FormData) {
     if (errPrincipal) {
       const revertError = await revertirCreacionProducto(productoId, uploadedImagePaths);
       return {
-        error: `Error al crear presentación Principal: ${errPrincipal.message}${revertError ? `. ${revertError}` : ""}`,
+        error: `Error al crear presentaci?n Principal: ${errPrincipal.message}${revertError ? `. ${revertError}` : ""}`,
       };
     }
   }
@@ -395,26 +549,26 @@ export async function crearProducto(formData: FormData) {
 export async function actualizarProducto(id: string, formData: FormData) {
   const auth = await requireAuth();
   if (auth.error) return auth;
-  if (!isValidUUID(id)) return { error: "ID inválido" };
+  if (!isValidUUID(id)) return { error: "ID inv?lido" };
 
   const nombre = formData.get("nombre") as string;
   const precio = parseFloat((formData.get("precio") as string) || "0");
   const subcategoria_id = formData.get("subcategoria_id") as string;
 
   if (!nombre?.trim()) return { error: "El nombre es obligatorio" };
-  if (!subcategoria_id) return { error: "Selecciona una subcategoría" };
+  if (!subcategoria_id) return { error: "Selecciona una subcategor?a" };
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
   const errPrecio = validarNumero(precio, 0, MAX_PRECIO, "El precio");
   if (errPrecio) return { error: errPrecio };
-  if (!isValidUUID(subcategoria_id)) return { error: "Subcategoría inválida" };
+  if (!isValidUUID(subcategoria_id)) return { error: "Subcategor?a inv?lida" };
   const subcategoriasResult = parseSubcategoriaIds(formData, subcategoria_id);
   if ("error" in subcategoriasResult) return subcategoriasResult;
 
   const descUpdate = (formData.get("descripcion") as string) || "";
-  if (descUpdate && descUpdate.length > MAX_DESCRIPCION) return { error: "Descripción: máximo 2000 caracteres" };
+  if (descUpdate && descUpdate.length > MAX_DESCRIPCION) return { error: "Descripci?n: m?ximo 2000 caracteres" };
   const dimUpdate = (formData.get("dimensiones") as string) || "";
-  if (dimUpdate && dimUpdate.length > 100) return { error: "Dimensiones: máximo 100 caracteres" };
+  if (dimUpdate && dimUpdate.length > 100) return { error: "Dimensiones: m?ximo 100 caracteres" };
 
   const uploadedImagePaths: string[] = [];
   const presentacionesResult = await extraerPresentacionesDesdeFormData(formData);
@@ -427,22 +581,126 @@ export async function actualizarProducto(id: string, formData: FormData) {
   const supabase = await createClient();
   const { data: productoActual, error: errProductoActual } = await supabase
     .from("productos")
-    .select("imagen")
+    .select(
+      "nombre, descripcion, precio, aplica_iva, iva_porcentaje, imagen, subcategoria_id, porcentaje_oferta, peso, dimensiones, requiere_refrigeracion, producto_fragil, destacado, nuevo, mas_vendido, recomendado, secciones_activas, datos_medicamento, datos_alimento, datos_juguete"
+    )
     .eq("id", id)
     .maybeSingle();
   if (errProductoActual) {
     await eliminarImagenesSubidas(uploadedImagePaths);
     return { error: `Error al consultar el producto actual: ${errProductoActual.message}` };
   }
+  if (!productoActual) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
+    return { error: "Producto no encontrado" };
+  }
 
   const { data: presentacionesExistentes, error: errPresentacionesExistentes } = await supabase
     .from("producto_presentaciones")
-    .select("id, imagen")
+    .select("id, nombre, imagen, precio, orden, porcentaje_oferta, aplica_iva, iva_porcentaje, created_at")
     .eq("producto_id", id);
   if (errPresentacionesExistentes) {
     await eliminarImagenesSubidas(uploadedImagePaths);
     return { error: `Error al consultar presentaciones actuales: ${errPresentacionesExistentes.message}` };
   }
+
+  const { data: relacionesActuales, error: errRelacionesActuales } = await supabase
+    .from("producto_subcategorias")
+    .select("subcategoria_id")
+    .eq("producto_id", id);
+  if (errRelacionesActuales) {
+    await eliminarImagenesSubidas(uploadedImagePaths);
+    return { error: `Error al consultar subcategor?as actuales: ${errRelacionesActuales.message}` };
+  }
+
+  const presentacionesActuales = (presentacionesExistentes ?? []) as ProductoPresentacionSnapshot[];
+  const presentacionesExistentesMap = new Map(
+    presentacionesActuales.map((presentacion) => [presentacion.id, presentacion])
+  );
+  const idsExistentes = new Set(presentacionesActuales.map((presentacion) => presentacion.id));
+  const principalExistente = presentacionesActuales
+    .filter((presentacion) => presentacion.nombre === "Principal")
+    .sort((a, b) => {
+      const left = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const right = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return left - right;
+    })[0];
+
+  const idsConservadosPrevistos = new Set<string>();
+  if (presentacionesResult.presentaciones.length === 0) {
+    if (principalExistente?.id) idsConservadosPrevistos.add(principalExistente.id);
+  } else {
+    presentacionesResult.presentaciones.forEach((presentacion) => {
+      if (presentacion.id && idsExistentes.has(presentacion.id)) {
+        idsConservadosPrevistos.add(presentacion.id);
+      }
+    });
+  }
+
+  const idsAEliminar = [...idsExistentes].filter((presentacionId) => !idsConservadosPrevistos.has(presentacionId));
+  if (idsAEliminar.length > 0) {
+    const { data: lotesAsociados, error: errLotes } = await supabase
+      .from("inventario_lotes")
+      .select("producto_presentacion_id")
+      .in("producto_presentacion_id", idsAEliminar);
+    if (errLotes) {
+      await eliminarImagenesSubidas(uploadedImagePaths);
+      return { error: `Error al validar inventario de las presentaciones: ${errLotes.message}` };
+    }
+    if ((lotesAsociados ?? []).length > 0) {
+      const idsConInventario = new Set(lotesAsociados?.map((lote) => lote.producto_presentacion_id) ?? []);
+      const nombresBloqueados = idsAEliminar
+        .filter((presentacionId) => idsConInventario.has(presentacionId))
+        .map((presentacionId) => presentacionesExistentesMap.get(presentacionId)?.nombre ?? "Presentaci?n")
+        .filter((nombre, index, self) => self.indexOf(nombre) === index);
+      await eliminarImagenesSubidas(uploadedImagePaths);
+      return {
+        error: `No se pueden eliminar presentaciones con inventario asociado (${nombresBloqueados.join(", ")}). Primero traslade o depure esos lotes.`,
+      };
+    }
+  }
+
+  const snapshot: ProductoUpdateSnapshot = {
+    producto: {
+      nombre: productoActual.nombre,
+      descripcion: productoActual.descripcion,
+      precio: productoActual.precio,
+      aplica_iva: productoActual.aplica_iva,
+      iva_porcentaje: productoActual.iva_porcentaje,
+      imagen: productoActual.imagen,
+      subcategoria_id: productoActual.subcategoria_id,
+      porcentaje_oferta: productoActual.porcentaje_oferta,
+      peso: productoActual.peso,
+      dimensiones: productoActual.dimensiones,
+      requiere_refrigeracion: productoActual.requiere_refrigeracion,
+      producto_fragil: productoActual.producto_fragil,
+      destacado: productoActual.destacado,
+      nuevo: productoActual.nuevo,
+      mas_vendido: productoActual.mas_vendido,
+      recomendado: productoActual.recomendado,
+      secciones_activas: productoActual.secciones_activas,
+      datos_medicamento: productoActual.datos_medicamento,
+      datos_alimento: productoActual.datos_alimento,
+      datos_juguete: productoActual.datos_juguete,
+    },
+    subcategoriaIds: [
+      ...new Set([
+        productoActual.subcategoria_id,
+        ...(relacionesActuales ?? []).map((relacion) => relacion.subcategoria_id),
+      ]),
+    ],
+    presentaciones: presentacionesActuales.map((presentacion) => ({
+      id: presentacion.id,
+      nombre: presentacion.nombre,
+      imagen: presentacion.imagen,
+      precio: presentacion.precio,
+      orden: presentacion.orden,
+      porcentaje_oferta: presentacion.porcentaje_oferta,
+      aplica_iva: presentacion.aplica_iva,
+      iva_porcentaje: presentacion.iva_porcentaje,
+      created_at: presentacion.created_at,
+    })),
+  };
 
   const file = formData.get("imagen") as File | null;
   let imagen: string | undefined;
@@ -484,6 +742,12 @@ export async function actualizarProducto(id: string, formData: FormData) {
   };
   if (imagen !== undefined) update.imagen = imagen;
 
+  const rollbackAfterPartialUpdate = async (message: string) => {
+    const rollbackError = await restaurarProductoDesdeSnapshot(id, snapshot);
+    await eliminarImagenesSubidas(uploadedImagePaths);
+    return { error: rollbackError ? `${message}. ${rollbackError}` : message };
+  };
+
   const { error } = await supabase.from("productos").update(update).eq("id", id);
 
   if (error) {
@@ -496,8 +760,7 @@ export async function actualizarProducto(id: string, formData: FormData) {
     .delete()
     .eq("producto_id", id);
   if (errDeleteRelaciones) {
-    await eliminarImagenesSubidas(uploadedImagePaths);
-    return { error: `Error al actualizar subcategorías del producto: ${errDeleteRelaciones.message}` };
+    return rollbackAfterPartialUpdate(`Error al actualizar subcategor?as del producto: ${errDeleteRelaciones.message}`);
   }
 
   const { error: errInsertRelaciones } = await supabase.from("producto_subcategorias").insert(
@@ -507,14 +770,9 @@ export async function actualizarProducto(id: string, formData: FormData) {
     }))
   );
   if (errInsertRelaciones) {
-    await eliminarImagenesSubidas(uploadedImagePaths);
-    return { error: `Error al guardar subcategorías del producto: ${errInsertRelaciones.message}` };
+    return rollbackAfterPartialUpdate(`Error al guardar subcategor?as del producto: ${errInsertRelaciones.message}`);
   }
 
-  const presentacionesExistentesMap = new Map(
-    (presentacionesExistentes ?? []).map((p) => [p.id, p.imagen ?? null])
-  );
-  const idsExistentes = new Set((presentacionesExistentes ?? []).map((p) => p.id));
   const idsConservados = new Set<string>();
   const imagePathsToDelete: string[] = [];
 
@@ -525,15 +783,6 @@ export async function actualizarProducto(id: string, formData: FormData) {
   }
 
   if (presentacionesResult.presentaciones.length === 0) {
-    const { data: principalExistente } = await supabase
-      .from("producto_presentaciones")
-      .select("id, imagen")
-      .eq("producto_id", id)
-      .eq("nombre", "Principal")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
     if (principalExistente?.id) {
       const { error: errPrincipalUpdate } = await supabase
         .from("producto_presentaciones")
@@ -552,8 +801,7 @@ export async function actualizarProducto(id: string, formData: FormData) {
         .eq("id", principalExistente.id)
         .eq("producto_id", id);
       if (errPrincipalUpdate) {
-        await eliminarImagenesSubidas(uploadedImagePaths);
-        return { error: `Error al actualizar presentación Principal: ${errPrincipalUpdate.message}` };
+        return rollbackAfterPartialUpdate(`Error al actualizar presentaci?n Principal: ${errPrincipalUpdate.message}`);
       }
       const oldImagePath = extraerPathDesdeUrlPublica(principalExistente.imagen);
       if (oldImagePath) imagePathsToDelete.push(oldImagePath);
@@ -577,15 +825,14 @@ export async function actualizarProducto(id: string, formData: FormData) {
         .select("id")
         .single();
       if (errPrincipal) {
-        await eliminarImagenesSubidas(uploadedImagePaths);
-        return { error: `Error al crear presentación Principal: ${errPrincipal.message}` };
+        return rollbackAfterPartialUpdate(`Error al crear presentaci?n Principal: ${errPrincipal.message}`);
       }
       if (principalInsertada?.id) idsConservados.add(principalInsertada.id);
     }
   } else {
     for (const presentacion of presentacionesResult.presentaciones) {
       if (presentacion.id && idsExistentes.has(presentacion.id)) {
-        const imagenAnterior = presentacionesExistentesMap.get(presentacion.id) ?? null;
+        const imagenAnterior = presentacionesExistentesMap.get(presentacion.id)?.imagen ?? null;
         const { error: errPresUpdate } = await supabase
           .from("producto_presentaciones")
           .update({
@@ -600,8 +847,7 @@ export async function actualizarProducto(id: string, formData: FormData) {
           .eq("id", presentacion.id)
           .eq("producto_id", id);
         if (errPresUpdate) {
-          await eliminarImagenesSubidas(uploadedImagePaths);
-          return { error: `Error al actualizar presentación "${presentacion.nombre}": ${errPresUpdate.message}` };
+          return rollbackAfterPartialUpdate(`Error al actualizar presentaci?n "${presentacion.nombre}": ${errPresUpdate.message}`);
         }
         const oldImagePath = extraerPathDesdeUrlPublica(imagenAnterior);
         const newImagePath = extraerPathDesdeUrlPublica(presentacion.imagen);
@@ -625,24 +871,21 @@ export async function actualizarProducto(id: string, formData: FormData) {
           .select("id")
           .single();
         if (errPresInsert) {
-          await eliminarImagenesSubidas(uploadedImagePaths);
-          return { error: `Error al crear presentación "${presentacion.nombre}": ${errPresInsert.message}` };
+          return rollbackAfterPartialUpdate(`Error al crear presentaci?n "${presentacion.nombre}": ${errPresInsert.message}`);
         }
         if (presentacionInsertada?.id) idsConservados.add(presentacionInsertada.id);
       }
     }
   }
 
-  const idsAEliminar = [...idsExistentes].filter((presentacionId) => !idsConservados.has(presentacionId));
   idsAEliminar.forEach((presentacionId) => {
-    const oldImagePath = extraerPathDesdeUrlPublica(presentacionesExistentesMap.get(presentacionId));
+    const oldImagePath = extraerPathDesdeUrlPublica(presentacionesExistentesMap.get(presentacionId)?.imagen);
     if (oldImagePath) imagePathsToDelete.push(oldImagePath);
   });
   if (idsAEliminar.length > 0) {
     const { error: errDel } = await supabase.from("producto_presentaciones").delete().in("id", idsAEliminar);
     if (errDel) {
-      await eliminarImagenesSubidas(uploadedImagePaths);
-      return { error: `Error al eliminar presentaciones removidas: ${errDel.message}` };
+      return rollbackAfterPartialUpdate(`Error al eliminar presentaciones removidas: ${errDel.message}`);
     }
   }
 
@@ -658,7 +901,7 @@ export async function actualizarProducto(id: string, formData: FormData) {
 export async function eliminarProducto(id: string) {
   const auth = await requireAuth();
   if (auth.error) return auth;
-  if (!isValidUUID(id)) return { error: "ID inválido" };
+  if (!isValidUUID(id)) return { error: "ID inv?lido" };
 
   const supabase = await createClient();
   const { error } = await supabase.from("productos").delete().eq("id", id);
