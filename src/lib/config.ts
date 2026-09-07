@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import { unstable_noStore as noStore } from "next/cache";
 
 export type ConfigData = {
   nombre_tienda: string | null;
@@ -26,6 +27,7 @@ const DEFAULTS: ConfigData = {
 
 export async function getConfiguracion(): Promise<ConfigData> {
   try {
+    noStore();
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("configuracion")
