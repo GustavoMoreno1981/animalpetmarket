@@ -1,7 +1,7 @@
 "use server";
 
 import { createAdminClient, requireAuth } from "@/lib/supabase/server";
-import { sanitizarTexto } from "@/lib/validations";
+import { sanitizarTexto, validarNumero } from "@/lib/validations";
 
 export type ConfigData = {
   nombre_tienda: string | null;
@@ -11,6 +11,8 @@ export type ConfigData = {
   direccion: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
+  valor_domicilio_base: number | null;
+  domicilio_gratis_activo: boolean;
 };
 
 export async function guardarConfiguracion(formData: FormData) {
@@ -24,6 +26,12 @@ export async function guardarConfiguracion(formData: FormData) {
   const direccion = sanitizarTexto(String(formData.get("direccion") ?? ""), 200);
   const facebook_url = sanitizarTexto(String(formData.get("facebook_url") ?? ""), 200);
   const instagram_url = sanitizarTexto(String(formData.get("instagram_url") ?? ""), 200);
+  const valorDomicilioRaw = String(formData.get("valor_domicilio_base") ?? "").trim();
+  const valor_domicilio_base = valorDomicilioRaw ? Number.parseFloat(valorDomicilioRaw) : 0;
+  const domicilio_gratis_activo = formData.get("domicilio_gratis_activo") === "on";
+
+  const errorValorDomicilio = validarNumero(valor_domicilio_base, 0, 999999999, "Valor del domicilio");
+  if (errorValorDomicilio) return { error: errorValorDomicilio };
 
   const supabase = createAdminClient();
 
@@ -37,6 +45,8 @@ export async function guardarConfiguracion(formData: FormData) {
       direccion: direccion || null,
       facebook_url: facebook_url || null,
       instagram_url: instagram_url || null,
+      valor_domicilio_base,
+      domicilio_gratis_activo,
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);

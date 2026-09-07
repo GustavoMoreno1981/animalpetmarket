@@ -2,6 +2,7 @@
 
 import { useCart } from "@/context/CartContext";
 import { crearPedido, validarCupon } from "@/app/checkout/actions";
+import { calcularResumenDomicilio, etiquetaValorDomicilio, type ConfiguracionDomicilio } from "@/lib/domicilios";
 import {
   etiquetaMetodoPago,
   METODO_PAGO_POR_DEFECTO,
@@ -30,11 +31,13 @@ const PASOS = [
 export function CheckoutModal({
   open,
   onClose,
+  configDomicilio,
   items,
   total,
 }: {
   open: boolean;
   onClose: () => void;
+  configDomicilio: ConfiguracionDomicilio;
   items: CartItem[];
   total: number;
 }) {
@@ -98,8 +101,12 @@ export function CheckoutModal({
     }
   }
 
-  const descuento = cuponAplicado ? total * (cuponAplicado.porcentaje / 100) : 0;
-  const totalConDescuento = total - descuento;
+  const resumen = calcularResumenDomicilio({
+    subtotalProductos: total,
+    valorDomicilioBase: configDomicilio.valor_domicilio_base,
+    domicilioGratis: configDomicilio.domicilio_gratis_activo,
+    porcentajeDescuento: cuponAplicado?.porcentaje ?? 0,
+  });
 
   function handleSiguiente() {
     setError(null);
@@ -307,15 +314,18 @@ export function CheckoutModal({
                 Método de pago: <span className="font-semibold text-slate-800">{etiquetaMetodoPago(metodoPago)}</span>
               </p>
               <p className="mt-2 text-right text-sm text-slate-500">
-                Subtotal: ${total.toLocaleString("es-CO")}
+                Subtotal: ${resumen.subtotalProductos.toLocaleString("es-CO")}
+              </p>
+              <p className="text-right text-sm text-slate-500">
+                Domicilio: {etiquetaValorDomicilio(resumen.valorDomicilioCobrado, resumen.domicilioEsGratis)}
               </p>
               {cuponAplicado && (
                 <p className="text-right text-sm text-green-600">
-                  Descuento ({cuponAplicado.porcentaje}%): -${descuento.toLocaleString("es-CO")}
+                  Descuento ({cuponAplicado.porcentaje}%): -${resumen.descuento.toLocaleString("es-CO")}
                 </p>
               )}
               <p className="text-right text-xl font-black text-[var(--ca-orange)]">
-                Total: ${totalConDescuento.toLocaleString("es-CO")}
+                Total: ${resumen.total.toLocaleString("es-CO")}
               </p>
               {error && (
                 <p className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
@@ -358,7 +368,7 @@ export function CheckoutModal({
                 {items.length} producto{items.length !== 1 ? "s" : ""}
               </span>
               <span className="font-bold text-slate-700">
-                ${totalConDescuento.toLocaleString("es-CO")}
+                ${resumen.total.toLocaleString("es-CO")}
               </span>
             </div>
           </div>

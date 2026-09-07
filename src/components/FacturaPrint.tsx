@@ -1,6 +1,7 @@
 "use client";
 
 import { tieneIva } from "@/lib/iva";
+import { etiquetaValorDomicilio, normalizarMonto } from "@/lib/domicilios";
 import { etiquetaMetodoPago } from "@/lib/pedidos";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -22,6 +23,11 @@ export type PedidoFactura = {
   direccion: string;
   notas: string | null;
   metodo_pago?: string | null;
+  subtotal_productos?: number | string | null;
+  valor_domicilio_cobrado?: number | string | null;
+  valor_domicilio_real?: number | string | null;
+  domicilio_es_gratis?: boolean | null;
+  descuento_pedido?: number | string | null;
   total: number;
   estado: string;
   created_at: string;
@@ -42,8 +48,10 @@ export function FacturaPrint({
     return Array.isArray(i) ? i : i ? [i] : [];
   })();
 
-  const total =
-    typeof pedido.total === "string" ? parseFloat(pedido.total) : Number(pedido.total);
+  const total = normalizarMonto(pedido.total);
+  const subtotalProductos = normalizarMonto(pedido.subtotal_productos);
+  const valorDomicilioCobrado = normalizarMonto(pedido.valor_domicilio_cobrado);
+  const descuentoPedido = normalizarMonto(pedido.descuento_pedido);
   const numeroOrden =
     pedido.numero_orden != null
       ? `ORD-${String(pedido.numero_orden).padStart(4, "0")}`
@@ -175,6 +183,11 @@ export function FacturaPrint({
         </table>
 
         {(() => {
+          const subtotalItems = items.reduce((sum, it) => {
+            const subtotalItem =
+              typeof it.subtotal === "string" ? parseFloat(it.subtotal) : it.subtotal;
+            return sum + subtotalItem;
+          }, 0);
           const totalesPorIva = items.reduce((acc, it) => {
             const subtotalItem =
               typeof it.subtotal === "string" ? parseFloat(it.subtotal) : it.subtotal;
@@ -187,13 +200,18 @@ export function FacturaPrint({
             return acc;
           }, {} as Record<number, number>);
           const totalIva = Object.values(totalesPorIva).reduce((sum, valor) => sum + valor, 0);
-          const subtotalSinIva = total - totalIva;
+          const subtotalSinIva = subtotalItems - totalIva;
           const tasasIva = Object.entries(totalesPorIva)
             .filter(([, valor]) => valor > 0.01)
             .sort((a, b) => Number(b[0]) - Number(a[0]));
           return tasasIva.length > 0 ? (
             <div className="mt-4 space-y-1 text-right text-sm">
-              <p>Subtotal (sin IVA): ${subtotalSinIva.toLocaleString("es-CO")}</p>
+              <p>Subtotal productos (sin IVA): ${subtotalSinIva.toLocaleString("es-CO")}</p>
+              <p>Subtotal productos: ${subtotalProductos.toLocaleString("es-CO")}</p>
+              <p>Domicilio: {etiquetaValorDomicilio(valorDomicilioCobrado, pedido.domicilio_es_gratis)}</p>
+              {descuentoPedido > 0 && (
+                <p>Descuento: -${descuentoPedido.toLocaleString("es-CO")}</p>
+              )}
               {tasasIva.map(([porcentaje, valor]) => (
                 <p key={porcentaje}>
                   IVA {porcentaje}%: ${valor.toLocaleString("es-CO")}
@@ -204,9 +222,16 @@ export function FacturaPrint({
               </p>
             </div>
           ) : (
-            <p className="mt-4 text-right text-lg font-black text-[var(--ca-orange)]">
-              Total: ${total.toLocaleString("es-CO")}
-            </p>
+            <div className="mt-4 space-y-1 text-right text-sm">
+              <p>Subtotal productos: ${subtotalProductos.toLocaleString("es-CO")}</p>
+              <p>Domicilio: {etiquetaValorDomicilio(valorDomicilioCobrado, pedido.domicilio_es_gratis)}</p>
+              {descuentoPedido > 0 && (
+                <p className="text-green-700">Descuento: -${descuentoPedido.toLocaleString("es-CO")}</p>
+              )}
+              <p className="text-lg font-black text-[var(--ca-orange)]">
+                Total: ${total.toLocaleString("es-CO")}
+              </p>
+            </div>
           );
         })()}
 

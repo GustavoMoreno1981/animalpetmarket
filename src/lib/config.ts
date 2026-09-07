@@ -8,6 +8,8 @@ export type ConfigData = {
   direccion: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
+  valor_domicilio_base: number | null;
+  domicilio_gratis_activo: boolean;
 };
 
 const DEFAULTS: ConfigData = {
@@ -18,6 +20,8 @@ const DEFAULTS: ConfigData = {
   direccion: "Barrancabermeja, Colombia",
   facebook_url: "https://facebook.com",
   instagram_url: "https://instagram.com",
+  valor_domicilio_base: 0,
+  domicilio_gratis_activo: false,
 };
 
 export async function getConfiguracion(): Promise<ConfigData> {
@@ -25,7 +29,7 @@ export async function getConfiguracion(): Promise<ConfigData> {
     const supabase = createAdminClient();
     const { data, error } = await supabase
       .from("configuracion")
-      .select("nombre_tienda, telefono, whatsapp, email, direccion, facebook_url, instagram_url")
+      .select("nombre_tienda, telefono, whatsapp, email, direccion, facebook_url, instagram_url, valor_domicilio_base, domicilio_gratis_activo")
       .eq("id", 1)
       .single();
 
@@ -39,6 +43,13 @@ export async function getConfiguracion(): Promise<ConfigData> {
       direccion: data.direccion ?? DEFAULTS.direccion,
       facebook_url: data.facebook_url ?? DEFAULTS.facebook_url,
       instagram_url: data.instagram_url ?? DEFAULTS.instagram_url,
+      valor_domicilio_base:
+        data.valor_domicilio_base == null
+          ? DEFAULTS.valor_domicilio_base
+          : typeof data.valor_domicilio_base === "string"
+            ? Number.parseFloat(data.valor_domicilio_base)
+            : Number(data.valor_domicilio_base),
+      domicilio_gratis_activo: Boolean(data.domicilio_gratis_activo),
     };
   } catch {
     return DEFAULTS;

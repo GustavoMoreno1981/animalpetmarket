@@ -1,5 +1,6 @@
 "use client";
 
+import { etiquetaValorDomicilio, normalizarMonto } from "@/lib/domicilios";
 import { etiquetaMetodoPago } from "@/lib/pedidos";
 import { Bike, Camera, MapPin, Phone, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,6 +21,9 @@ type Pedido = {
   direccion: string;
   notas: string | null;
   metodo_pago?: string | null;
+  valor_domicilio_cobrado?: number | string | null;
+  valor_domicilio_real?: number | string | null;
+  domicilio_es_gratis?: boolean | null;
   total: number;
   estado: string;
   pedido_items: PedidoItem[] | PedidoItem | null;
@@ -30,7 +34,17 @@ function formatNumeroOrden(n: number | null): string {
   return `ORD-${String(n).padStart(4, "0")}`;
 }
 
-export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
+export function PedidosPorRepartirClient({
+  pedidos,
+  resumen,
+}: {
+  pedidos: Pedido[];
+  resumen: {
+    pedidosEntregados: number;
+    totalPedidos: number;
+    totalDomicilios: number;
+  };
+}) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modalPedido, setModalPedido] = useState<Pedido | null>(null);
@@ -142,6 +156,27 @@ export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
         </p>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">Pedidos entregados</p>
+          <p className="mt-2 text-2xl font-black text-[var(--ca-purple)]">
+            {resumen.pedidosEntregados}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">Dinero acumulado en pedidos</p>
+          <p className="mt-2 text-2xl font-black text-[var(--ca-orange)]">
+            ${resumen.totalPedidos.toLocaleString("es-CO")}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-slate-500">Domicilios acumulados</p>
+          <p className="mt-2 text-2xl font-black text-emerald-600">
+            ${resumen.totalDomicilios.toLocaleString("es-CO")}
+          </p>
+        </div>
+      </div>
+
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
           {error}
@@ -159,7 +194,8 @@ export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
       ) : (
         <div className="space-y-4">
           {pedidos.map((p) => {
-            const total = typeof p.total === "string" ? parseFloat(p.total) : Number(p.total);
+            const total = normalizarMonto(p.total);
+            const valorDomicilioReal = normalizarMonto(p.valor_domicilio_real);
             return (
               <div
                 key={p.id}
@@ -173,6 +209,12 @@ export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
                     <p className="text-sm text-slate-500">{p.direccion}</p>
                     <p className="text-xs font-medium text-slate-600">
                       Pago: {etiquetaMetodoPago(p.metodo_pago)}
+                    </p>
+                    <p className="text-xs font-medium text-slate-600">
+                      Domicilio: {etiquetaValorDomicilio(p.valor_domicilio_cobrado, p.domicilio_es_gratis)}
+                    </p>
+                    <p className="text-xs font-medium text-slate-600">
+                      Costo real domicilio: ${valorDomicilioReal.toLocaleString("es-CO")}
                     </p>
                     {p.estado !== "despachado" && (
                       <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
@@ -240,6 +282,14 @@ export function PedidosPorRepartirClient({ pedidos }: { pedidos: Pedido[] }) {
                 <p className="text-slate-600">
                   <span className="font-medium">Método de pago:</span>{" "}
                   {etiquetaMetodoPago(modalPedido.metodo_pago)}
+                </p>
+                <p className="text-slate-600">
+                  <span className="font-medium">Domicilio al cliente:</span>{" "}
+                  {etiquetaValorDomicilio(modalPedido.valor_domicilio_cobrado, modalPedido.domicilio_es_gratis)}
+                </p>
+                <p className="text-slate-600">
+                  <span className="font-medium">Costo real domicilio:</span>{" "}
+                  ${normalizarMonto(modalPedido.valor_domicilio_real).toLocaleString("es-CO")}
                 </p>
               </div>
 

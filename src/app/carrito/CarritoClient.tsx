@@ -2,6 +2,7 @@
 
 import { useCart } from "@/context/CartContext";
 import { CheckoutModal } from "@/components/CheckoutModal";
+import { type ConfiguracionDomicilio } from "@/lib/domicilios";
 import {
   CreditCard,
   Minus,
@@ -12,7 +13,7 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 
-export function CarritoClient() {
+export function CarritoClient({ configDomicilio }: { configDomicilio: ConfiguracionDomicilio }) {
   const { items, removeFromCart, updateCantidad, getTotalItems, getTotalPrecio } =
     useCart();
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -147,6 +148,7 @@ export function CarritoClient() {
               <CheckoutModal
                 open={modalAbierto}
                 onClose={() => setModalAbierto(false)}
+                configDomicilio={configDomicilio}
                 items={items.map((i) => ({
                   productId: i.productId,
                   nombre: i.nombre,

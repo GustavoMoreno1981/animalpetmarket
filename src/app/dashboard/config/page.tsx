@@ -7,7 +7,7 @@ export default async function ConfigPage() {
       const supabase = createAdminClient();
       const { data } = await supabase
         .from("configuracion")
-        .select("nombre_tienda, telefono, whatsapp, email, direccion, facebook_url, instagram_url")
+        .select("nombre_tienda, telefono, whatsapp, email, direccion, facebook_url, instagram_url, valor_domicilio_base, domicilio_gratis_activo")
         .eq("id", 1)
         .maybeSingle();
       return data;

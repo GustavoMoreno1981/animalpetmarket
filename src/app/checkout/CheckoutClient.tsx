@@ -1,6 +1,7 @@
 "use client";
 
 import { useCart } from "@/context/CartContext";
+import { calcularResumenDomicilio, etiquetaValorDomicilio, type ConfiguracionDomicilio } from "@/lib/domicilios";
 import {
   etiquetaMetodoPago,
   METODO_PAGO_POR_DEFECTO,
@@ -13,7 +14,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { crearPedido, validarCupon } from "./actions";
 
-export function CheckoutClient() {
+export function CheckoutClient({ configDomicilio }: { configDomicilio: ConfiguracionDomicilio }) {
   const router = useRouter();
   const { items, getTotalPrecio, clearCart } = useCart();
   const [nombre, setNombre] = useState("");
@@ -28,8 +29,12 @@ export function CheckoutClient() {
   const [error, setError] = useState<string | null>(null);
 
   const total = getTotalPrecio();
-  const descuento = cuponAplicado ? total * (cuponAplicado.porcentaje / 100) : 0;
-  const totalConDescuento = total - descuento;
+  const resumen = calcularResumenDomicilio({
+    subtotalProductos: total,
+    valorDomicilioBase: configDomicilio.valor_domicilio_base,
+    domicilioGratis: configDomicilio.domicilio_gratis_activo,
+    porcentajeDescuento: cuponAplicado?.porcentaje ?? 0,
+  });
 
   async function handleAplicarCupon() {
     setCuponError(null);
@@ -232,20 +237,29 @@ export function CheckoutClient() {
             </div>
             <div className="flex justify-between text-sm text-slate-600">
               <span>Subtotal</span>
-              <span>${total.toLocaleString("es-CO")}</span>
+              <span>${resumen.subtotalProductos.toLocaleString("es-CO")}</span>
+            </div>
+            <div className="flex justify-between text-sm text-slate-600">
+              <span>Domicilio</span>
+              <span>{etiquetaValorDomicilio(resumen.valorDomicilioCobrado, resumen.domicilioEsGratis)}</span>
             </div>
             {cuponAplicado && (
               <div className="flex justify-between text-sm text-green-600">
                 <span>Descuento ({cuponAplicado.porcentaje}%)</span>
-                <span>-${descuento.toLocaleString("es-CO")}</span>
+                <span>-${resumen.descuento.toLocaleString("es-CO")}</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-black pt-2">
               <span>Total</span>
               <span className="text-[var(--ca-orange)]">
-                ${totalConDescuento.toLocaleString("es-CO")}
+                ${resumen.total.toLocaleString("es-CO")}
               </span>
             </div>
+            {resumen.domicilioEsGratis && resumen.valorDomicilioReal > 0 && (
+              <p className="text-xs text-green-700">
+                Promoción aplicada: el cliente no paga domicilio en este pedido.
+              </p>
+            )}
           </div>
 
           {error && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { obtenerPedidoPorId, type PedidoResumen } from "@/app/checkout/actions";
+import { etiquetaValorDomicilio, normalizarMonto } from "@/lib/domicilios";
 import { etiquetaMetodoPago } from "@/lib/pedidos";
 import { Check, Download, RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -15,9 +16,10 @@ export function PedidoConfirmacion({ pedido }: { pedido: PedidoResumen }) {
   })();
 
   const total =
-    typeof pedidoActual.total === "string"
-      ? parseFloat(pedidoActual.total)
-      : Number(pedidoActual.total);
+    normalizarMonto(pedidoActual.total);
+  const subtotalProductos = normalizarMonto(pedidoActual.subtotal_productos);
+  const valorDomicilioCobrado = normalizarMonto(pedidoActual.valor_domicilio_cobrado);
+  const descuentoPedido = normalizarMonto(pedidoActual.descuento_pedido);
   const numeroOrden =
     pedidoActual.numero_orden != null
       ? `ORD-${String(pedidoActual.numero_orden).padStart(4, "0")}`
@@ -123,9 +125,22 @@ export function PedidoConfirmacion({ pedido }: { pedido: PedidoResumen }) {
             </ul>
           </div>
 
-          <p className="mt-4 text-right text-xl font-black text-[var(--ca-orange)]">
-            Total: ${total.toLocaleString("es-CO")}
-          </p>
+          <div className="mt-4 space-y-1 text-right">
+            <p className="text-sm text-slate-500">
+              Subtotal: ${subtotalProductos.toLocaleString("es-CO")}
+            </p>
+            <p className="text-sm text-slate-500">
+              Domicilio: {etiquetaValorDomicilio(valorDomicilioCobrado, pedidoActual.domicilio_es_gratis)}
+            </p>
+            {descuentoPedido > 0 && (
+              <p className="text-sm text-green-600">
+                Descuento: -${descuentoPedido.toLocaleString("es-CO")}
+              </p>
+            )}
+            <p className="text-xl font-black text-[var(--ca-orange)]">
+              Total: ${total.toLocaleString("es-CO")}
+            </p>
+          </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <button

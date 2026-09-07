@@ -7,6 +7,8 @@ import {
   validarTelefono,
 } from "@/lib/validations";
 import { aplicarIva, resolverIvaPorcentaje } from "@/lib/iva";
+import { getConfiguracion } from "@/lib/config";
+import { calcularResumenDomicilio } from "@/lib/domicilios";
 import {
   esMetodoPagoPedido,
   METODO_PAGO_POR_DEFECTO,
@@ -208,10 +210,26 @@ export async function crearPedido(
 
   if (itemsValidados.length === 0) return { error: "El carrito está vacío" };
 
-  const total = itemsValidados.reduce(
+  const subtotalProductos = itemsValidados.reduce(
     (sum, i) => sum + i.precio * i.cantidad,
     0
   );
+
+  const cupon = (cuponCodigo ?? "").trim() || null;
+  let porcentajeDescuento = 0;
+  if (cupon) {
+    const cuponValidado = await validarCupon(cupon);
+    if (!cuponValidado.valid) return { error: cuponValidado.error };
+    porcentajeDescuento = cuponValidado.porcentaje;
+  }
+
+  const config = await getConfiguracion();
+  const resumen = calcularResumenDomicilio({
+    subtotalProductos,
+    valorDomicilioBase: config.valor_domicilio_base,
+    domicilioGratis: config.domicilio_gratis_activo,
+    porcentajeDescuento,
+  });
 
   const itemsParaRpc = itemsValidados.map((i) => ({
     producto_id: i.productId,
@@ -223,18 +241,20 @@ export async function crearPedido(
     iva_porcentaje: i.iva_porcentaje,
   }));
 
-  const cupon = (cuponCodigo ?? "").trim() || null;
-
   const { data: pedidoId, error: errRpc } = await supabase.rpc("crear_pedido_transaccional", {
     p_nombre_cliente: sanitizarTexto(nombre, MAX_NOMBRE),
     p_telefono: sanitizarTexto(telefono, 20),
     p_direccion: sanitizarTexto(direccion, MAX_DIRECCION),
     p_notas: notas ? sanitizarTexto(notas, MAX_NOTAS) : "",
-    p_total: total,
+    p_total: resumen.total,
     p_items: itemsParaRpc,
     p_cupon_codigo: cupon,
     p_vendedor_id: opciones?.vendedorId ?? null,
     p_metodo_pago: metodoPago,
+    p_subtotal_productos: resumen.subtotalProductos,
+    p_valor_domicilio_cobrado: resumen.valorDomicilioCobrado,
+    p_valor_domicilio_real: resumen.valorDomicilioReal,
+    p_domicilio_es_gratis: resumen.domicilioEsGratis,
   });
 
   if (errRpc) return { error: errRpc.message };
@@ -316,6 +336,11 @@ export type PedidoResumen = {
   direccion: string;
   notas: string | null;
   metodo_pago: MetodoPagoPedido;
+  subtotal_productos: number;
+  valor_domicilio_cobrado: number;
+  valor_domicilio_real: number;
+  domicilio_es_gratis: boolean;
+  descuento_pedido: number;
   total: number;
   created_at: string;
   token_factura: string | null | undefined;
@@ -337,6 +362,11 @@ export async function obtenerPedidoPorId(pedidoId: string): Promise<PedidoResume
       direccion,
       notas,
       metodo_pago,
+      subtotal_productos,
+      valor_domicilio_cobrado,
+      valor_domicilio_real,
+      domicilio_es_gratis,
+      descuento_pedido,
       total,
       created_at,
       token_factura,

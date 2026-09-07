@@ -1,5 +1,6 @@
 "use client";
 
+import { etiquetaValorDomicilio, normalizarMonto } from "@/lib/domicilios";
 import { etiquetaMetodoPago } from "@/lib/pedidos";
 import { ChevronDown, ChevronUp, History, MapPin, Phone, Plus, Search, User, UserCheck } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -28,6 +29,11 @@ type Pedido = {
   direccion: string;
   notas: string | null;
   metodo_pago?: string | null;
+  subtotal_productos?: number | string | null;
+  valor_domicilio_cobrado?: number | string | null;
+  valor_domicilio_real?: number | string | null;
+  domicilio_es_gratis?: boolean | null;
+  descuento_pedido?: number | string | null;
   total: number;
   estado: string;
   created_at: string;
@@ -259,7 +265,11 @@ export function PedidosClient({
         <div className="space-y-4">
           {pedidosFiltrados.map((p) => {
             const isOpen = expandido === p.id;
-            const total = typeof p.total === "string" ? parseFloat(p.total) : Number(p.total);
+            const total = normalizarMonto(p.total);
+            const subtotalProductos = normalizarMonto(p.subtotal_productos);
+            const valorDomicilioCobrado = normalizarMonto(p.valor_domicilio_cobrado);
+            const valorDomicilioReal = normalizarMonto(p.valor_domicilio_real);
+            const descuentoPedido = normalizarMonto(p.descuento_pedido);
             const fecha = new Date(p.created_at).toLocaleString("es-CO", {
               dateStyle: "medium",
               timeStyle: "short",
@@ -380,6 +390,14 @@ export function PedidosClient({
                           <span className="font-medium">Método de pago:</span>{" "}
                           {etiquetaMetodoPago(p.metodo_pago)}
                         </p>
+                        <p className="text-sm text-slate-600">
+                          <span className="font-medium">Domicilio al cliente:</span>{" "}
+                          {etiquetaValorDomicilio(valorDomicilioCobrado, p.domicilio_es_gratis)}
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          <span className="font-medium">Costo real domicilio:</span>{" "}
+                          ${valorDomicilioReal.toLocaleString("es-CO")}
+                        </p>
                       </div>
                       <div>
                         <p className="mb-2 text-sm font-bold text-slate-700">
@@ -408,6 +426,17 @@ export function PedidosClient({
                         <p className="mt-2 text-right font-black text-[var(--ca-orange)]">
                           Total: ${total.toLocaleString("es-CO")}
                         </p>
+                        <div className="mt-3 space-y-1 text-right text-xs text-slate-500">
+                          <p>Subtotal productos: ${subtotalProductos.toLocaleString("es-CO")}</p>
+                          <p>
+                            Domicilio: {etiquetaValorDomicilio(valorDomicilioCobrado, p.domicilio_es_gratis)}
+                          </p>
+                          {descuentoPedido > 0 && (
+                            <p className="text-green-600">
+                              Descuento: -${descuentoPedido.toLocaleString("es-CO")}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                     {esAdmin && p.estado !== "entregado" && p.estado !== "cancelado" && domiciliarios.length > 0 && (

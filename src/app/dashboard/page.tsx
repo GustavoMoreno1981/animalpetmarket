@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
+  Coins,
   Package,
   PawPrint,
   ShoppingBag,
@@ -58,29 +59,58 @@ export default async function DashboardPage() {
   if (ctx?.rol === "domiciliario" && ctx.domiciliarioId) {
     const { createAdminClient } = await import("@/lib/supabase/server");
     const supabase = createAdminClient();
-    const { data: pedidos } = await supabase
-      .from("pedidos")
-      .select(`
-        id,
-        numero_orden,
-        nombre_cliente,
-        telefono,
-        direccion,
-        notas,
-        metodo_pago,
-        total,
-        estado,
-        pedido_items (
-          nombre,
-          presentacion,
-          cantidad,
-          subtotal
-        )
-      `)
-      .eq("domiciliario_id", ctx.domiciliarioId)
-      .in("estado", ["pendiente", "confirmado", "enviado", "despachado"])
-      .order("created_at", { ascending: false });
-    return <PedidosPorRepartirClient pedidos={pedidos ?? []} />;
+    const [{ data: pedidos }, { data: entregados }] = await Promise.all([
+      supabase
+        .from("pedidos")
+        .select(`
+          id,
+          numero_orden,
+          nombre_cliente,
+          telefono,
+          direccion,
+          notas,
+          metodo_pago,
+          subtotal_productos,
+          valor_domicilio_cobrado,
+          valor_domicilio_real,
+          domicilio_es_gratis,
+          descuento_pedido,
+          total,
+          estado,
+          pedido_items (
+            nombre,
+            presentacion,
+            cantidad,
+            subtotal
+          )
+        `)
+        .eq("domiciliario_id", ctx.domiciliarioId)
+        .in("estado", ["pendiente", "confirmado", "enviado", "despachado"])
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("pedidos")
+        .select("id, total, valor_domicilio_real")
+        .eq("domiciliario_id", ctx.domiciliarioId)
+        .eq("estado", "entregado"),
+    ]);
+
+    const resumen = {
+      pedidosEntregados: entregados?.length ?? 0,
+      totalPedidos: (entregados ?? []).reduce(
+        (sum, p) => sum + (typeof p.total === "string" ? parseFloat(p.total) : Number(p.total ?? 0)),
+        0
+      ),
+      totalDomicilios: (entregados ?? []).reduce(
+        (sum, p) =>
+          sum +
+          (typeof p.valor_domicilio_real === "string"
+            ? parseFloat(p.valor_domicilio_real)
+            : Number(p.valor_domicilio_real ?? 0)),
+        0
+      ),
+    };
+
+    return <PedidosPorRepartirClient pedidos={pedidos ?? []} resumen={resumen} />;
   }
 
   const supabase = await createClient();
@@ -139,6 +169,7 @@ export default async function DashboardPage() {
       icon: TrendingUp,
       color: "bg-[#f4e8ff]",
     },
+    { label: "Control domicilios", value: "Activo", icon: Coins, color: "bg-[#fef3e8]" },
   ];
 
   const seccionesVencimiento = [
@@ -181,7 +212,7 @@ export default async function DashboardPage() {
         Panel de administración de Pet Market Animal
       </p>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (

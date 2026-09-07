@@ -13,6 +13,8 @@ type ConfigData = {
   direccion: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
+  valor_domicilio_base: number | null;
+  domicilio_gratis_activo: boolean;
 };
 
 const EMPTY_CONFIG: ConfigData = {
@@ -23,6 +25,8 @@ const EMPTY_CONFIG: ConfigData = {
   direccion: null,
   facebook_url: null,
   instagram_url: null,
+  valor_domicilio_base: 0,
+  domicilio_gratis_activo: false,
 };
 
 export function ConfigClient({
@@ -88,7 +92,7 @@ export function ConfigClient({
         </h1>
       </div>
       <p className="mb-6 text-slate-600">
-        Ajusta los datos de contacto y redes sociales de tu tienda. Estos se mostrarán en el Footer y en la página de contacto.
+        Ajusta los datos de contacto, redes sociales y el valor base del domicilio. Estos datos se usarán en la tienda y en los pedidos.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -175,6 +179,43 @@ export function ConfigClient({
               placeholder="Barrancabermeja, Colombia"
               className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:border-[var(--ca-purple)] focus:outline-none focus:ring-1 focus:ring-[var(--ca-purple)]"
             />
+          </div>
+
+          <div>
+            <label htmlFor="valor_domicilio_base" className="mb-1 block text-sm font-medium text-slate-700">
+              Valor base del domicilio
+            </label>
+            <input
+              id="valor_domicilio_base"
+              name="valor_domicilio_base"
+              type="number"
+              min="0"
+              step="100"
+              defaultValue={c.valor_domicilio_base ?? 0}
+              placeholder="0"
+              className="w-full rounded-lg border border-slate-300 px-4 py-2 focus:border-[var(--ca-purple)] focus:outline-none focus:ring-1 focus:ring-[var(--ca-purple)]"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Este es el costo real que quedará guardado en cada pedido nuevo.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
+            <input
+              id="domicilio_gratis_activo"
+              name="domicilio_gratis_activo"
+              type="checkbox"
+              defaultChecked={Boolean(c.domicilio_gratis_activo)}
+              className="h-4 w-4 rounded border-slate-300 text-[var(--ca-purple)] focus:ring-[var(--ca-purple)]"
+            />
+            <div>
+              <label htmlFor="domicilio_gratis_activo" className="block text-sm font-medium text-slate-700">
+                Domicilio gratis por defecto para el cliente
+              </label>
+              <p className="text-xs text-slate-500">
+                Si está activo, el cliente verá “Gratis”, pero el pedido guardará el costo interno real del domicilio.
+              </p>
+            </div>
           </div>
 
           <div>
