@@ -888,6 +888,43 @@ export async function eliminarProducto(id: string) {
   if (!isValidUUID(id)) return { error: "ID inv?lido" };
 
   const supabase = await createClient();
+  const { data: presentaciones, error: presentacionesError } = await supabase
+    .from("producto_presentaciones")
+    .select("id")
+    .eq("producto_id", id);
+  if (presentacionesError) return { error: presentacionesError.message };
+
+  const presentacionIds = (presentaciones ?? []).map((presentacion) => presentacion.id);
+  if (presentacionIds.length > 0) {
+    const { count: inventarioCount, error: inventarioError } = await supabase
+      .from("inventario_lotes")
+      .select("*", { count: "exact", head: true })
+      .in("producto_presentacion_id", presentacionIds);
+    if (inventarioError) return { error: inventarioError.message };
+    if ((inventarioCount ?? 0) > 0) {
+      return { error: "No puedes eliminar un producto que todav?a tiene inventario o historial de presentaciones asociado" };
+    }
+    return { error: "No puedes eliminar un producto que todav?a conserva presentaciones asociadas" };
+  }
+
+  const { count: relacionesCount, error: relacionesError } = await supabase
+    .from("producto_subcategorias")
+    .select("*", { count: "exact", head: true })
+    .eq("producto_id", id);
+  if (relacionesError) return { error: relacionesError.message };
+  if ((relacionesCount ?? 0) > 0) {
+    return { error: "No puedes eliminar un producto que todav?a conserva relaciones de cat?logo asociadas" };
+  }
+
+  const { count: pedidosCount, error: pedidosError } = await supabase
+    .from("pedido_items")
+    .select("*", { count: "exact", head: true })
+    .eq("producto_id", id);
+  if (pedidosError) return { error: pedidosError.message };
+  if ((pedidosCount ?? 0) > 0) {
+    return { error: "No puedes eliminar un producto que ya hace parte del historial de pedidos" };
+  }
+
   const { error } = await supabase.from("productos").delete().eq("id", id);
 
   if (error) return { error: error.message };

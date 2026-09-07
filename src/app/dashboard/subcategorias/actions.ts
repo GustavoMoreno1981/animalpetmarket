@@ -88,6 +88,24 @@ export async function eliminarSubcategoria(id: string) {
     return { error: "No puedes eliminar una subcategoría que todavía tiene productos asociados" };
   }
 
+  const { count: relacionesCount, error: relacionesError } = await supabase
+    .from("producto_subcategorias")
+    .select("*", { count: "exact", head: true })
+    .eq("subcategoria_id", id);
+  if (relacionesError) return { error: relacionesError.message };
+  if ((relacionesCount ?? 0) > 0) {
+    return { error: "No puedes eliminar una subcategoría que todavía conserva relaciones con productos" };
+  }
+
+  const { count: tiposCount, error: tiposError } = await supabase
+    .from("tipos_producto")
+    .select("*", { count: "exact", head: true })
+    .eq("subcategoria_id", id);
+  if (tiposError) return { error: tiposError.message };
+  if ((tiposCount ?? 0) > 0) {
+    return { error: "No puedes eliminar una subcategoría que todavía tiene tipos de producto asociados" };
+  }
+
   const { error } = await supabase.from("subcategorias").delete().eq("id", id);
 
   if (error) return { error: error.message };
