@@ -887,10 +887,17 @@ export async function eliminarProducto(id: string) {
   if (auth.error) return auth;
   if (!isValidUUID(id)) return { error: "ID inv?lido" };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
+  const { data: producto, error: productoError } = await supabase
+    .from("productos")
+    .select("id, imagen")
+    .eq("id", id)
+    .single();
+  if (productoError) return { error: productoError.message };
+
   const { data: presentaciones, error: presentacionesError } = await supabase
     .from("producto_presentaciones")
-    .select("id")
+    .select("id, imagen")
     .eq("producto_id", id);
   if (presentacionesError) return { error: presentacionesError.message };
 
@@ -904,16 +911,6 @@ export async function eliminarProducto(id: string) {
     if ((inventarioCount ?? 0) > 0) {
       return { error: "No puedes eliminar un producto que todav?a tiene inventario o historial de presentaciones asociado" };
     }
-    return { error: "No puedes eliminar un producto que todav?a conserva presentaciones asociadas" };
-  }
-
-  const { count: relacionesCount, error: relacionesError } = await supabase
-    .from("producto_subcategorias")
-    .select("*", { count: "exact", head: true })
-    .eq("producto_id", id);
-  if (relacionesError) return { error: relacionesError.message };
-  if ((relacionesCount ?? 0) > 0) {
-    return { error: "No puedes eliminar un producto que todav?a conserva relaciones de cat?logo asociadas" };
   }
 
   const { count: pedidosCount, error: pedidosError } = await supabase
@@ -925,9 +922,33 @@ export async function eliminarProducto(id: string) {
     return { error: "No puedes eliminar un producto que ya hace parte del historial de pedidos" };
   }
 
+  const imagePathsToDelete = new Set<string>();
+  const imagenPrincipalPath = extraerPathDesdeUrlPublica(producto?.imagen);
+  if (imagenPrincipalPath) imagePathsToDelete.add(imagenPrincipalPath);
+  for (const presentacion of presentaciones ?? []) {
+    const path = extraerPathDesdeUrlPublica(presentacion.imagen);
+    if (path) imagePathsToDelete.add(path);
+  }
+
+  const { error: relacionesError } = await supabase
+    .from("producto_subcategorias")
+    .delete()
+    .eq("producto_id", id);
+  if (relacionesError) return { error: relacionesError.message };
+
+  if (presentacionIds.length > 0) {
+    const { error: presentacionesDeleteError } = await supabase
+      .from("producto_presentaciones")
+      .delete()
+      .in("id", presentacionIds);
+    if (presentacionesDeleteError) return { error: presentacionesDeleteError.message };
+  }
+
   const { error } = await supabase.from("productos").delete().eq("id", id);
 
   if (error) return { error: error.message };
+
+  await eliminarImagenesSubidas(Array.from(imagePathsToDelete));
 
   revalidatePath("/dashboard/productos");
   revalidatePath("/");

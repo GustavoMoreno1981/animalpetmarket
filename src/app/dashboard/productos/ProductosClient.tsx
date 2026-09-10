@@ -90,6 +90,7 @@ export function ProductosClient({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
 
@@ -105,6 +106,7 @@ export function ProductosClient({
   }
 
   async function handleCreate(formData: FormData) {
+    setError(null);
     setLoading(true);
     try {
       const result = await crearProducto(formData);
@@ -126,6 +128,7 @@ export function ProductosClient({
   }
 
   async function handleUpdate(id: string, formData: FormData) {
+    setError(null);
     setLoading(true);
     try {
       const result = await actualizarProducto(id, formData);
@@ -148,9 +151,14 @@ export function ProductosClient({
 
   async function handleDelete(id: string) {
     if (!confirm("¿Eliminar este producto?")) return;
+    setError(null);
     setLoading(true);
     try {
-      await eliminarProducto(id);
+      const result = await eliminarProducto(id);
+      if ("error" in result && result.error) {
+        setError(result.error);
+        return;
+      }
       recargarPaginaProductos();
     } finally {
       setLoading(false);
@@ -278,6 +286,12 @@ export function ProductosClient({
           />
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-slate-200">
         <table className="w-full text-left text-sm">
