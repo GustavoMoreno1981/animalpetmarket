@@ -7,7 +7,8 @@ import {
   validarNumero,
 } from "@/lib/validations";
 import { IVA_OPCIONES, IVA_POR_DEFECTO } from "@/lib/iva";
-import { createAdminClient, createClient, requireAuth } from "@/lib/supabase/server";
+import { requireAdminDashboard } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 const BUCKET = "producto-imagenes";
@@ -177,6 +178,15 @@ function parseJson(formData: FormData, key: string): Record<string, unknown> | n
   }
 }
 
+function resolverJsonEnActualizacion(
+  formData: FormData,
+  key: string,
+  valorActual: Record<string, unknown> | null
+) {
+  if (!formData.has(key)) return valorActual;
+  return parseJson(formData, key);
+}
+
 function parseSecciones(formData: FormData): string[] {
   const secciones = formData.getAll("secciones_activas") as string[];
   return secciones.filter(Boolean);
@@ -197,7 +207,7 @@ function parseSubcategoriaIds(
 }
 
 async function validarTipoProductoEnSubcategoria(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   tipoProductoId: string,
   subcategoriaId: string
 ) {
@@ -422,8 +432,8 @@ async function extraerPresentacionesDesdeFormData(
 }
 
 export async function crearProducto(formData: FormData) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
 
   const nombre = formData.get("nombre") as string;
   const subcategoria_id = formData.get("subcategoria_id") as string;
@@ -467,7 +477,7 @@ export async function crearProducto(formData: FormData) {
     return { error: errPrecio };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const validacionTipo = await validarTipoProductoEnSubcategoria(
     supabase,
     tipo_producto_id,
@@ -572,8 +582,8 @@ export async function crearProducto(formData: FormData) {
 }
 
 export async function actualizarProducto(id: string, formData: FormData) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(id)) return { error: "ID inv?lido" };
 
   const nombre = formData.get("nombre") as string;
@@ -614,7 +624,7 @@ export async function actualizarProducto(id: string, formData: FormData) {
     return { error: errPrecio };
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const validacionTipo = await validarTipoProductoEnSubcategoria(
     supabase,
     tipo_producto_id,
@@ -769,9 +779,21 @@ export async function actualizarProducto(id: string, formData: FormData) {
     mas_vendido: formData.get("mas_vendido") === "1",
     recomendado: formData.get("recomendado") === "1",
     secciones_activas: parseSecciones(formData),
-    datos_medicamento: parseJson(formData, "datos_medicamento"),
-    datos_alimento: parseJson(formData, "datos_alimento"),
-    datos_juguete: parseJson(formData, "datos_juguete"),
+    datos_medicamento: resolverJsonEnActualizacion(
+      formData,
+      "datos_medicamento",
+      productoActual.datos_medicamento
+    ),
+    datos_alimento: resolverJsonEnActualizacion(
+      formData,
+      "datos_alimento",
+      productoActual.datos_alimento
+    ),
+    datos_juguete: resolverJsonEnActualizacion(
+      formData,
+      "datos_juguete",
+      productoActual.datos_juguete
+    ),
   };
   if (imagen !== undefined) update.imagen = imagen;
 
@@ -883,8 +905,8 @@ export async function actualizarProducto(id: string, formData: FormData) {
 }
 
 export async function eliminarProducto(id: string) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(id)) return { error: "ID inv?lido" };
 
   const supabase = createAdminClient();

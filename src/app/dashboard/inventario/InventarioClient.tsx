@@ -2,6 +2,7 @@
 
 import { AlertTriangle, ChevronLeft, ChevronRight, LogOut, Package, Plus, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { agregarLote, darSalidaLote } from "./actions";
 import { StickerLote } from "./StickerLote";
 
@@ -49,6 +50,7 @@ export function InventarioClient({
   const [busqueda, setBusqueda] = useState("");
   const [pagina, setPagina] = useState(1);
   const focoRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (focoPresentacionId && focoRef.current) {
@@ -74,6 +76,7 @@ export function InventarioClient({
       setCantidad("");
       setFechaVencimiento("");
       setProductoPresentacionId("");
+      router.refresh();
     }
   };
 
@@ -91,6 +94,7 @@ export function InventarioClient({
     } else {
       setSalidaLoteId(null);
       setSalidaCantidad("");
+      router.refresh();
     }
   };
 

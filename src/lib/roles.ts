@@ -76,6 +76,19 @@ export async function getDashboardContext(): Promise<DashboardContext | null> {
   };
 }
 
+export async function requireDashboardRole(...allowedRoles: Rol[]) {
+  const ctx = await getDashboardContext();
+  if (!ctx) return { error: "No autorizado. Inicia sesión." };
+  if (!allowedRoles.includes(ctx.rol)) {
+    return { error: "No autorizado para realizar esta acción." };
+  }
+  return { ctx };
+}
+
+export async function requireAdminDashboard() {
+  return requireDashboardRole("admin");
+}
+
 /** Obtiene el perfil del usuario. Si no existe, crea admin (primer usuario). */
 export async function getPerfil(userId: string): Promise<Perfil | null> {
   const supabase = createAdminClient();

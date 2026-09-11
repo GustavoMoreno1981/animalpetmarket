@@ -1,7 +1,8 @@
 "use server";
 
 import { isValidUUID, sanitizarTexto, validarLongitud } from "@/lib/validations";
-import { createClient, requireAuth } from "@/lib/supabase/server";
+import { requireAdminDashboard } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 const MAX_NOMBRE = 100;
@@ -18,7 +19,7 @@ export type TipoProducto = {
   productos?: { count: number }[] | null;
 };
 
-async function contarProductosPorTipo(supabase: Awaited<ReturnType<typeof createClient>>, tipoProductoId: string) {
+async function contarProductosPorTipo(supabase: ReturnType<typeof createAdminClient>, tipoProductoId: string) {
   const { count, error } = await supabase
     .from("productos")
     .select("*", { count: "exact", head: true })
@@ -29,8 +30,8 @@ async function contarProductosPorTipo(supabase: Awaited<ReturnType<typeof create
 }
 
 export async function crearTipoProducto(formData: FormData) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
 
   const nombre = formData.get("nombre") as string;
   const subcategoria_id = formData.get("subcategoria_id") as string;
@@ -41,7 +42,7 @@ export async function crearTipoProducto(formData: FormData) {
   if (errNombre) return { error: errNombre };
   if (!isValidUUID(subcategoria_id)) return { error: "Subcategoría inválida" };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("tipos_producto").insert({
     nombre: sanitizarTexto(nombre, MAX_NOMBRE),
     subcategoria_id,
@@ -61,8 +62,8 @@ export async function crearTipoProducto(formData: FormData) {
 }
 
 export async function actualizarTipoProducto(id: string, formData: FormData) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(id)) return { error: "ID inválido" };
 
   const nombre = formData.get("nombre") as string;
@@ -74,7 +75,7 @@ export async function actualizarTipoProducto(id: string, formData: FormData) {
   if (errNombre) return { error: errNombre };
   if (!isValidUUID(subcategoria_id)) return { error: "Subcategoría inválida" };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: actual, error: errActual } = await supabase
     .from("tipos_producto")
     .select("subcategoria_id")
@@ -117,11 +118,11 @@ export async function actualizarTipoProducto(id: string, formData: FormData) {
 }
 
 export async function eliminarTipoProducto(id: string) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(id)) return { error: "ID inválido" };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: tipo, error: errTipo } = await supabase
     .from("tipos_producto")
     .select("id, nombre")

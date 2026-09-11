@@ -1,7 +1,8 @@
 "use server";
 
 import { isValidUUID, sanitizarTexto, validarLongitud } from "@/lib/validations";
-import { createAdminClient, createClient, requireAuth } from "@/lib/supabase/server";
+import { requireAdminDashboard } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 const MAX_NOMBRE = 100;
@@ -53,15 +54,15 @@ async function eliminarImagenesSubidas(paths: string[]) {
 }
 
 export async function crearCategoria(formData: FormData) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
 
   const nombre = formData.get("nombre") as string;
   if (!nombre?.trim()) return { error: "El nombre es obligatorio" };
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const file = formData.get("imagen") as File | null;
   const uploadedImagePaths: string[] = [];
   let imagen: string | null = null;
@@ -89,8 +90,8 @@ export async function crearCategoria(formData: FormData) {
 }
 
 export async function actualizarCategoria(id: string, formData: FormData) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(id)) return { error: "ID inválido" };
 
   const nombre = formData.get("nombre") as string;
@@ -98,9 +99,8 @@ export async function actualizarCategoria(id: string, formData: FormData) {
   const errNombre = validarLongitud(nombre, MAX_NOMBRE);
   if (errNombre) return { error: errNombre };
 
-  const supabase = await createClient();
-  const admin = createAdminClient();
-  const { data: categoriaActual, error: categoriaActualError } = await admin
+  const supabase = createAdminClient();
+  const { data: categoriaActual, error: categoriaActualError } = await supabase
     .from("categorias")
     .select("imagen")
     .eq("id", id)
@@ -146,11 +146,11 @@ export async function actualizarCategoria(id: string, formData: FormData) {
 }
 
 export async function eliminarCategoria(id: string) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(id)) return { error: "ID inválido" };
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { count: subcategoriasCount, error: subcategoriasError } = await supabase
     .from("subcategorias")
     .select("*", { count: "exact", head: true })

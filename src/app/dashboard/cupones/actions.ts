@@ -1,7 +1,8 @@
 "use server";
 
 import { isValidUUID } from "@/lib/validations";
-import { createAdminClient, requireAuth } from "@/lib/supabase/server";
+import { requireAdminDashboard } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 const CARACTERES = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -13,8 +14,8 @@ function generarCodigo6(): string {
 }
 
 export async function crearCupon(porcentaje: number, validoHasta: string | null) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
 
   if (porcentaje < 1 || porcentaje > 99) {
     return { error: "El porcentaje debe estar entre 1 y 99" };
@@ -61,8 +62,8 @@ export async function crearCupon(porcentaje: number, validoHasta: string | null)
 }
 
 export async function eliminarCupon(id: string) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(id)) return { error: "ID de cupón inválido" };
 
   const supabase = createAdminClient();

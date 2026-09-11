@@ -1,12 +1,13 @@
 "use server";
 
 import { isValidUUID } from "@/lib/validations";
-import { createAdminClient, requireAuth } from "@/lib/supabase/server";
+import { requireAdminDashboard } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function marcarPendiente(pedidoId: string) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(pedidoId)) return { error: "Pedido inválido" };
 
   const supabase = createAdminClient();
@@ -25,8 +26,8 @@ export async function marcarDespachado(
   total: number,
   domiciliarioId?: string | null
 ) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(pedidoId)) return { error: "Pedido inválido" };
 
   const supabase = createAdminClient();
@@ -46,8 +47,8 @@ export async function marcarDespachado(
 }
 
 export async function asignarDomiciliario(pedidoId: string, domiciliarioId: string | null) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(pedidoId)) return { error: "Pedido inválido" };
   if (domiciliarioId && !isValidUUID(domiciliarioId)) return { error: "Domiciliario inválido" };
 
@@ -65,61 +66,16 @@ export async function asignarDomiciliario(pedidoId: string, domiciliarioId: stri
 }
 
 export async function rechazarPedido(pedidoId: string) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
   if (!isValidUUID(pedidoId)) return { error: "Pedido inválido" };
 
   const supabase = createAdminClient();
-
-  // Si el pedido usó cupón, primero hay que liberarlo para no violar la FK.
-  const { error: errCupon } = await supabase
-    .from("cupones")
-    .update({ usado: false, pedido_id: null })
-    .eq("pedido_id", pedidoId);
-  if (errCupon) return { error: errCupon.message };
-
-  const { data: pedido } = await supabase
-    .from("pedidos")
-    .select("estado")
-    .eq("id", pedidoId)
-    .single();
-
-  if (pedido?.estado === "despachado") {
-    await supabase.from("ventas").delete().eq("pedido_id", pedidoId);
-
-    const { data: items } = await supabase
-      .from("pedido_items")
-      .select("producto_id, presentacion, cantidad")
-      .eq("pedido_id", pedidoId);
-
-    const vencDevolucion = new Date();
-    vencDevolucion.setMonth(vencDevolucion.getMonth() + 6);
-    const fechaDev = vencDevolucion.toISOString().slice(0, 10);
-
-    if (items?.length) {
-      for (const item of items) {
-        if (!item.producto_id) continue;
-        const cant = typeof item.cantidad === "string" ? parseInt(item.cantidad, 10) : item.cantidad;
-        const { data: pp } = await supabase
-          .from("producto_presentaciones")
-          .select("id")
-          .eq("producto_id", item.producto_id)
-          .eq("nombre", item.presentacion)
-          .single();
-        if (!pp?.id) continue;
-
-        await supabase.from("inventario_lotes").insert({
-          producto_presentacion_id: pp.id,
-          lote: `DEV-${pedidoId.slice(0, 8)}`,
-          cantidad: cant,
-          fecha_vencimiento: fechaDev,
-        });
-      }
-    }
-  }
-
-  const { error } = await supabase.from("pedidos").delete().eq("id", pedidoId);
+  const { error } = await supabase.rpc("rechazar_pedido_transaccional", {
+    p_pedido_id: pedidoId,
+  });
   if (error) return { error: error.message };
+
   revalidatePath("/dashboard/pedidos");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/inventario");

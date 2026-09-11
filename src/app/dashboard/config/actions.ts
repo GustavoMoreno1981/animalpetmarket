@@ -1,6 +1,7 @@
 "use server";
 
-import { createAdminClient, requireAuth } from "@/lib/supabase/server";
+import { requireAdminDashboard } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 import { sanitizarTexto, validarNumero } from "@/lib/validations";
 
 export type ConfigData = {
@@ -16,8 +17,8 @@ export type ConfigData = {
 };
 
 export async function guardarConfiguracion(formData: FormData) {
-  const auth = await requireAuth();
-  if (auth.error) return { error: auth.error };
+  const admin = await requireAdminDashboard();
+  if (admin.error) return { error: admin.error };
 
   const nombre_tienda = sanitizarTexto(String(formData.get("nombre_tienda") ?? ""), 120);
   const telefono = sanitizarTexto(String(formData.get("telefono") ?? ""), 30);

@@ -358,6 +358,7 @@ export function PedidosClient({
                           rel="noopener noreferrer"
                           className="block"
                         >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={p.entrega_foto_url}
                             alt="Pedido entregado"
@@ -465,30 +466,35 @@ export function PedidosClient({
                     )}
                     <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-4">
                       <FacturaImprimir pedido={p} />
-                      <button
-                        type="button"
-                        onClick={() => handlePendiente(p.id)}
-                        disabled={loading === p.id || p.estado === "pendiente"}
-                        className="rounded-lg bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
-                      >
-                        Pendiente
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDespachado(p.id, total)}
-                        disabled={loading === p.id || p.estado === "despachado"}
-                        className="rounded-lg bg-green-100 px-3 py-1.5 text-sm font-bold text-green-800 hover:bg-green-200 disabled:opacity-50"
-                      >
-                        Despachado
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRechazado(p.id)}
-                        disabled={loading === p.id}
-                        className="rounded-lg bg-red-100 px-3 py-1.5 text-sm font-bold text-red-800 hover:bg-red-200 disabled:opacity-50"
-                      >
-                        Rechazado
-                      </button>
+                      {esAdmin && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handlePendiente(p.id)}
+                            disabled={loading === p.id || p.estado === "pendiente"}
+                            className="rounded-lg bg-amber-100 px-3 py-1.5 text-sm font-bold text-amber-800 hover:bg-amber-200 disabled:opacity-50"
+                          >
+                            Pendiente
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDespachado(p.id, total)}
+                            disabled={loading === p.id || p.estado === "despachado"}
+                            className="rounded-lg bg-green-100 px-3 py-1.5 text-sm font-bold text-green-800 hover:bg-green-200 disabled:opacity-50"
+                          >
+                            Despachado
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRechazado(p.id)}
+                            disabled={loading === p.id || p.estado === "entregado"}
+                            className="rounded-lg bg-red-100 px-3 py-1.5 text-sm font-bold text-red-800 hover:bg-red-200 disabled:opacity-50"
+                            title={p.estado === "entregado" ? "Los pedidos entregados no se pueden rechazar" : undefined}
+                          >
+                            Rechazado
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

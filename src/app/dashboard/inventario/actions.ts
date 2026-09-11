@@ -2,7 +2,8 @@
 
 import { isValidUUID, validarFecha, validarNumero } from "@/lib/validations";
 import { resolverIvaPorcentaje } from "@/lib/iva";
-import { createAdminClient, requireAuth } from "@/lib/supabase/server";
+import { requireAdminDashboard } from "@/lib/roles";
+import { createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 /** Crea presentación "Principal" para productos que no tienen ninguna (para que aparezcan en inventario). */
@@ -39,8 +40,8 @@ export async function asegurarPresentacionesPrincipales() {
 const MAX_CANTIDAD = 999999;
 
 export async function darSalidaLote(loteId: string, cantidad: number) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
 
   if (!isValidUUID(loteId)) return { error: "Lote inválido" };
   const errCant = validarNumero(cantidad, 1, MAX_CANTIDAD, "La cantidad");
@@ -64,8 +65,8 @@ export async function agregarLote(
   cantidad: number,
   fechaVencimiento: string
 ) {
-  const auth = await requireAuth();
-  if (auth.error) return auth;
+  const admin = await requireAdminDashboard();
+  if (admin.error) return admin;
 
   if (!cantidad || cantidad < 1) return { error: "La cantidad debe ser mayor a 0" };
   if (!fechaVencimiento) return { error: "La fecha de vencimiento es obligatoria" };
@@ -94,7 +95,11 @@ export async function agregarLote(
     const fechaVenc = fechaVencimiento.replace(/-/g, "");
     const suf = Date.now().toString(36).slice(-4).toUpperCase();
     const codigo = `ING-${fechaIngreso}-${cantidad}-VENC-${fechaVenc}-${suf}`;
-    await supabase.from("inventario_lotes").update({ lote: codigo }).eq("id", inserted.id);
+    const { error: renameError } = await supabase
+      .from("inventario_lotes")
+      .update({ lote: codigo })
+      .eq("id", inserted.id);
+    if (renameError) return { error: renameError.message };
   }
   revalidatePath("/dashboard/inventario");
   revalidatePath("/dashboard");

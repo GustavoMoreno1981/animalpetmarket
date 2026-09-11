@@ -6,7 +6,7 @@ import {
   validarLongitud,
   validarTelefono,
 } from "@/lib/validations";
-import { createAdminClient, createClient, requireAuth } from "@/lib/supabase/server";
+import { createAdminClient, requireAuth } from "@/lib/supabase/server";
 import { getPerfil } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
@@ -35,20 +35,20 @@ export async function crearCliente(nombre: string, telefono: string, direccion: 
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("clientes")
-    .upsert(
-      {
-        nombre: sanitizarTexto(nombre, MAX_NOMBRE),
-        telefono: sanitizarTexto(telefono, 20),
-        direccion: direccion?.trim() ? sanitizarTexto(direccion, MAX_DIRECCION) : null,
-        vendedor_id: vendedorId,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "telefono", ignoreDuplicates: false }
-    )
+    .insert({
+      nombre: sanitizarTexto(nombre, MAX_NOMBRE),
+      telefono: sanitizarTexto(telefono, 20),
+      direccion: direccion?.trim() ? sanitizarTexto(direccion, MAX_DIRECCION) : null,
+      vendedor_id: vendedorId,
+      updated_at: new Date().toISOString(),
+    })
     .select("id")
     .single();
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") return { error: "Ya existe un cliente con ese teléfono" };
+    return { error: error.message };
+  }
 
   revalidatePath("/dashboard/clientes");
   return { success: true, id: data?.id };
